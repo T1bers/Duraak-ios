@@ -97,15 +97,27 @@ final class GameVM: ObservableObject {
             }
             return
         }
+
         thinking = true
+        message = "Bot \(actor) is considering its move…"
         let snapshot = state
         let budget = self.budget
+
+        // Keep the decision visibly deliberate. The Monte Carlo calculation still
+        // runs off the main thread, and the minimum delay prevents instant bot turns.
         Task {
-            try? await Task.sleep(nanoseconds: 350_000_000)
-            guard myToken == token else { return }
+            let startedAt = DispatchTime.now().uptimeNanoseconds
+            let minimumThinkTime = UInt64.random(in: 1_100_000_000...1_700_000_000)
+
             let move = await Task.detached(priority: .userInitiated) {
                 MonteCarlo.chooseMove(state: snapshot, player: actor, timeBudget: budget)
             }.value
+
+            let elapsed = DispatchTime.now().uptimeNanoseconds - startedAt
+            if elapsed < minimumThinkTime {
+                try? await Task.sleep(nanoseconds: minimumThinkTime - elapsed)
+            }
+
             guard myToken == token else { return }
             thinking = false
             perform(move)
