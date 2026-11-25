@@ -80,6 +80,7 @@ final class GameVM: ObservableObject {
         switch m {
         case .attack(let c): return "\(name(p)) attacks with \(c.label)"
         case .defend(_, let c): return "\(name(p)) beats with \(c.label)"
+        case .transfer(let c): return "\(name(p)) transfers with \(c.label)"
         case .take: return "\(name(p)) takes the cards"
         case .pass: return state.defenderTaking ? "\(name(state.defender)) takes the cards" : "All cards beaten"
         }
