@@ -7,6 +7,7 @@ struct GameConfig: Identifiable {
     let budget: Double
     let cheaterMode: Bool
     let playerTimeout: Int
+    let deckSize: Int
 }
 
 struct RootView: View {
@@ -17,15 +18,15 @@ struct RootView: View {
         if showSplash {
             SplashView { showSplash = false }
         } else if let c = config {
-            GameView(players: c.players, budget: c.budget, cheaterMode: c.cheaterMode, playerTimeout: c.playerTimeout, onExit: { config = nil }).id(c.id)
+            GameView(players: c.players, budget: c.budget, cheaterMode: c.cheaterMode, playerTimeout: c.playerTimeout, deckSize: c.deckSize, onExit: { config = nil }).id(c.id)
         } else {
-            MenuView(onStart: { p, b, cheat, timeout in config = GameConfig(players: p, budget: b, cheaterMode: cheat, playerTimeout: timeout) })
+            MenuView(onStart: { p, b, cheat, timeout in config = GameConfig(players: p, budget: b, cheaterMode: cheat, playerTimeout: timeout, deckSize: deck) })
         }
     }
 }
 
 struct MenuView: View {
-    var onStart: (Int, Double, Bool, Int) -> Void
+    var onStart: (Int, Double, Bool, Int, Int) -> Void
     @State private var opponents = 1
     @State private var level = 1
     @State private var showBench = false
@@ -34,6 +35,7 @@ struct MenuView: View {
     @State private var showInfo = false
     @State private var cheaterMode = false
     @State private var timeout = 30
+    @State private var deck = 36
 
     var body: some View {
         ZStack {
@@ -55,6 +57,13 @@ struct MenuView: View {
                     .toggleStyle(.switch).tint(.yellow)
                     .foregroundColor(.white).padding(.horizontal, 30)
                 HStack {
+                    Text("Deck size").foregroundColor(.white)
+                    Spacer()
+                    Picker("Deck size", selection: $deck) {
+                        Text("24 cards").tag(24); Text("36 cards").tag(36)
+                    }.pickerStyle(.menu).tint(.yellow)
+                }.padding(.horizontal, 30)
+                HStack {
                     Text("Your turn limit").foregroundColor(.white)
                     Spacer()
                     Picker("Turn limit", selection: $timeout) {
@@ -62,7 +71,7 @@ struct MenuView: View {
                     }.pickerStyle(.menu).tint(.yellow)
                 }.padding(.horizontal, 30)
                 Button {
-                    onStart(opponents + 1, [0.15, 0.5, 0.9][level], cheaterMode, timeout)
+                    onStart(opponents + 1, [0.15, 0.5, 0.9][level], cheaterMode, timeout, deck)
                 } label: {
                     Text("Create Game").font(.title2.bold()).frame(width: 220, height: 52)
                         .background(Color.yellow).foregroundColor(.black).cornerRadius(26)
@@ -221,8 +230,8 @@ struct GameView: View {
     @StateObject private var vm: GameVM
     var onExit: () -> Void
 
-    init(players: Int, budget: Double, cheaterMode: Bool, playerTimeout: Int, onExit: @escaping () -> Void) {
-        _vm = StateObject(wrappedValue: GameVM(players: players, budget: budget, cheaterMode: cheaterMode, playerTimeout: playerTimeout))
+    init(players: Int, budget: Double, cheaterMode: Bool, playerTimeout: Int, deckSize: Int, onExit: @escaping () -> Void) {
+        _vm = StateObject(wrappedValue: GameVM(players: players, budget: budget, cheaterMode: cheaterMode, playerTimeout: playerTimeout, deckSize: deckSize))
         self.onExit = onExit
     }
 
