@@ -13,7 +13,7 @@ final class DurakCoreTests: XCTestCase {
         }
     }
 
-    func testTenThousandGamesPreserveAllCardsAndFinishOrReachDrawLimit() {
+    func testTenThousandGamesPreserveAllCards() {
         var finishedGames = 0
         var cappedDraws = 0
         for game in 0..<10_000 {
@@ -22,18 +22,18 @@ final class DurakCoreTests: XCTestCase {
             var steps = 0
             while !state.over && steps < 1_000 {
                 let moves = state.legalMoves()
-                XCTAssertFalse(moves.isEmpty, "No legal move in game \(game)")
+                XCTAssertFalse(moves.isEmpty, "No legal move in game \\(game)")
                 state.apply(chooseMove(moves, state))
                 steps += 1
                 let ids = allCardIDs(state)
-                XCTAssertEqual(ids.count, 36, "Card count changed in game \(game)")
-                XCTAssertEqual(Set(ids).count, 36, "Duplicate/missing card in game \(game)")
+                XCTAssertEqual(ids.count, 36, "Card count changed in game \\(game)")
+                XCTAssertEqual(Set(ids).count, 36, "Duplicate/missing card in game \\(game)")
             }
             if state.over { finishedGames += 1 } else { cappedDraws += 1 }
         }
-
         XCTAssertEqual(finishedGames + cappedDraws, 10_000)
-        print("10,000-game simulation: \(finishedGames) finished; \(cappedDraws) reached the 1,000-move draw cutoff")
+        print("10,000-game simulation: \\(finishedGames) finished; \\(cappedDraws) reached the 1,000-move draw cutoff")
+    }
 
     func testMonteCarloReturnsLegalMove() {
         for seed in 1...30 {
@@ -51,16 +51,15 @@ final class DurakCoreTests: XCTestCase {
         var merge = DynamicArray<Card>(values)
         Sorts.mergeSort(&merge, key: { $0.id })
         let counting = Sorts.countingSort(values, k: 36, key: { $0.id })
-        XCTAssertEqual(merge.toArray().map(\.id), counting.map(\.id))
+        XCTAssertEqual(merge.toArray().map(\\.id), counting.map(\\.id))
     }
 
     func testShufflePreservesDeck() {
         var rng = FastRNG(seed: 123)
         var cards = DynamicArray<Card>((0..<36).map { Card(id: $0) })
         Sorts.fisherYates(&cards, using: &rng)
-        XCTAssertEqual(Set(cards.toArray().map(\.id)), Set(0..<36))
+        XCTAssertEqual(Set(cards.toArray().map(\\.id)), Set(0..<36))
     }
-
 
     func testTrumpAndSameSuitBeatingRules() {
         var queue = CircularQueue<Int>(capacity: 2)
@@ -70,11 +69,11 @@ final class DurakCoreTests: XCTestCase {
             DynamicArray<Card>([Card(id: 2)])
         ]
         let state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts, order: queue)
-        XCTAssertTrue(state.beats(Card(id: 2), Card(id: 0)))       // higher same suit
-        XCTAssertTrue(state.beats(Card(id: 27), Card(id: 0)))      // trump beats non-trump
-        XCTAssertTrue(state.beats(Card(id: 28), Card(id: 27)))     // higher trump beats trump
-        XCTAssertFalse(state.beats(Card(id: 27), Card(id: 28)))   // lower trump cannot beat trump
-        XCTAssertFalse(state.beats(Card(id: 11), Card(id: 27)))   // non-trump cannot beat trump
+        XCTAssertTrue(state.beats(Card(id: 2), Card(id: 0)))
+        XCTAssertTrue(state.beats(Card(id: 27), Card(id: 0)))
+        XCTAssertTrue(state.beats(Card(id: 28), Card(id: 27)))
+        XCTAssertFalse(state.beats(Card(id: 27), Card(id: 28)))
+        XCTAssertFalse(state.beats(Card(id: 11), Card(id: 27)))
     }
 
     func testAttackerCanOnlyAddRanksAlreadyOnTable() {
@@ -88,8 +87,8 @@ final class DurakCoreTests: XCTestCase {
         state.apply(.attack(Card(id: 0)))
         state.apply(.defend(0, Card(id: 2)))
         let moves = state.legalMoves()
-        XCTAssertTrue(moves.contains(.attack(Card(id: 9))))   // rank 6 already on table
-        XCTAssertTrue(moves.contains(.attack(Card(id: 10))) == false) // rank 7 is not on table
+        XCTAssertTrue(moves.contains(.attack(Card(id: 9))))
+        XCTAssertFalse(moves.contains(.attack(Card(id: 10))))
     }
 
     func testAllPlayersOutTogetherIsADraw() {
@@ -103,7 +102,7 @@ final class DurakCoreTests: XCTestCase {
         state.apply(.attack(Card(id: 0)))
         state.apply(.defend(0, Card(id: 1)))
         state.apply(.pass)
-            if state.over { finishedGames += 1 } else { cappedDraws += 1 }
+        XCTAssertTrue(state.over)
         XCTAssertNil(state.durak)
     }
 
@@ -142,7 +141,7 @@ final class DurakCoreTests: XCTestCase {
             let delta = Double(observed) - expected
             return partial + delta * delta / expected
         }
-        XCTAssertLessThan(chiSquare, 70.0, "Shuffle first-position chi-square was \\(chiSquare)")
+        XCTAssertLessThan(chiSquare, 70.0)
     }
 
     private func chooseMove(_ moves: [Move], _ state: GameState) -> Move {
