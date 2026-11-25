@@ -5,18 +5,21 @@ final class GameVM: ObservableObject {
     @Published var state: GameState
     @Published var thinking = false
     @Published var message = "Your turn"
+    @Published var remainingTime = 0
 
     private(set) var history = Stack<GameState>()
     let playerCount: Int
     let budget: Double
     let cheaterMode: Bool
+    let playerTimeout: Int
     private var token = 0
     private var forceFairNextBotMove = false
 
-    init(players: Int, budget: Double, cheaterMode: Bool = false) {
+    init(players: Int, budget: Double, cheaterMode: Bool = false, playerTimeout: Int = 30) {
         self.playerCount = players
         self.budget = budget
         self.cheaterMode = cheaterMode
+        self.playerTimeout = playerTimeout
         self.state = GameState.newGame(players: players)
         schedule()
     }
@@ -98,6 +101,20 @@ final class GameVM: ObservableObject {
         let myToken = token
         if actor == 0 {
             thinking = false
+            remainingTime = playerTimeout
+            Task {
+                for second in stride(from: playerTimeout, through: 1, by: -1) {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    guard myToken == token, !state.over, state.actor == 0 else { return }
+                    remainingTime = second - 1
+                }
+                guard myToken == token, !state.over, state.actor == 0 else { return }
+                token += 1
+                state.over = true
+                state.durak = 0
+                message = "Time is up. You lose this game."
+                thinking = false
+            }
             let moves = state.legalMoves()
             if moves.count == 1, case .pass = moves[0] {
                 Task {
@@ -118,7 +135,8 @@ final class GameVM: ObservableObject {
         // runs off the main thread, and the minimum delay prevents instant bot turns.
         Task {
             let startedAt = DispatchTime.now().uptimeNanoseconds
-            let minimumThinkTime = UInt64.random(in: 1_100_000_000...1_700_000_000)
+            let delayRange: ClosedRange<UInt64> = budget < 0.3 ? 700_000_000...1_100_000_000 : (budget < 0.7 ? 1_100_000_000...1_700_000_000 : 1_600_000_000...2_200_000_000)
+            let minimumThinkTime = UInt64.random(in: delayRange)
 
             // Cheater mode is a hidden, occasional rule violation. Bots do not
             // inspect other hands; they only sometimes throw an off-rank card.
