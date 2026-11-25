@@ -172,7 +172,7 @@ struct InfoView: View {
                     rule("The cards", "Choose a 24-card deck (9 through Ace) or a 36-card deck (6 through Ace). Each player starts with six cards.")
                     rule("Trump suit", "A trump card beats any non-trump card. To beat a trump card, you must play a higher card of the same trump suit.")
                     rule("1. Attack", "The attacker places one card on the table. The defender must cover it with a higher card of the same suit or a trump card.")
-                    rule("2. Add cards", "The attacker may add cards whose rank matches a rank already on the table. The total number of attacking cards cannot exceed the defender’s hand size at the start of the round.")
+                    rule("2. Add cards", "Depending on the selected setting, the neighboring players or all players except the defender may add cards whose rank matches a rank already on the table. The total number of attacking cards cannot exceed the defender’s hand size at the start of the round.")
                     rule("Transfer mode", "When Transfer Durak is enabled, a defender may pass the attack to the next player by playing a card of the same rank, if that player has enough cards to defend.")
                     rule("Cheater bots", "In Cheater mode, bots sometimes make a hidden illegal throw-in without seeing anyone else’s hand. Tap the suspicious card on the table to call it out. The bot must then continue with a legal move.")
                     rule("3. Defend or take", "Cover every attacking card to defend successfully. If you cannot or do not want to defend, choose Take and collect all cards on the table.")
