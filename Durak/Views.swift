@@ -91,17 +91,19 @@ struct InfoView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("How to Play").font(.title.bold())
-                    Text("Durak is a card game for 2–4 players. The goal is to get rid of all your cards. The last player left holding cards is the Durak.")
-                    rule("1. Deal", "Each player starts with 6 cards. The remaining cards form the draw pile. One card is revealed to show the trump suit.")
-                    rule("2. Attack", "The attacker plays a card. The defender must beat it with a higher card of the same suit or any trump card.")
-                    rule("3. Add cards", "The attacker may add cards matching a rank already on the table. The number of attacking cards cannot exceed the defender’s hand.")
-                    rule("4. Take or defend", "If you cannot or do not want to defend, choose Take and collect all cards on the table. If every attack is beaten, choose Done.")
-                    rule("5. Refill", "After a round, players draw back up to 6 cards while cards remain in the deck. The attacker draws first and the defender last.")
-                    rule("6. Win", "When the deck is empty, players who run out of cards leave the game. The last player with cards loses.")
+                    Text("What is Durak?").font(.title.bold())
+                    Text("Durak is a traditional card game for 2–4 players. You are not trying to collect points: your goal is to get rid of every card in your hand. The last player who still has cards when the game ends is the Durak, which means “the fool.”")
+                    rule("The cards", "The game uses 36 cards: 6, 7, 8, 9, 10, Jack, Queen, King and Ace in each of the four suits. Each player starts with six cards.")
+                    rule("Trump suit", "A trump card beats any non-trump card. To beat a trump card, you must play a higher card of the same trump suit.")
+                    rule("1. Attack", "The attacker places one card on the table. The defender must cover it with a higher card of the same suit or a trump card.")
+                    rule("2. Add cards", "The attacker and other players may add cards whose rank matches a rank already on the table. The total number of attacking cards cannot exceed the defender’s hand size at the start of the round.")
+                    rule("3. Defend or take", "Cover every attacking card to defend successfully. If you cannot or do not want to defend, choose Take and collect all cards on the table.")
+                    rule("4. Finish the round", "When every attack is covered, the attacker chooses Done. If the defender takes the cards, the next player after the defender starts the next attack.")
+                    rule("5. Draw cards", "After a round, players draw back up to six cards while the deck lasts. The attacker draws first and the defender draws last.")
+                    rule("6. Win or lose", "When the deck is empty, players who get rid of all their cards leave the game. The last player holding cards loses.")
                     Divider().overlay(Color.white.opacity(0.25))
                     Text("Developers").font(.title2.bold())
-                    Text("Alan and Shoxrux").font(.title3).foregroundColor(.yellow)
+                    Text("Alan & Shoxrux").font(.title3).foregroundColor(.yellow)
                 }
                 .foregroundColor(.white)
                 .padding(22)
@@ -189,7 +191,7 @@ struct GameView: View {
                 Spacer(minLength: 0)
                 tableArea
                 Spacer(minLength: 0)
-                Text(vm.thinking ? "\(vm.message) · AI is thinking…" : vm.message)
+                Text(vm.thinking ? "Bot is thinking…" : vm.message)
                     .font(.subheadline).foregroundColor(.white.opacity(0.9)).lineLimit(1)
                 actionButtons
                 handView
