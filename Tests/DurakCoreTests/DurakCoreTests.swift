@@ -22,17 +22,17 @@ final class DurakCoreTests: XCTestCase {
             var steps = 0
             while !state.over && steps < 1_000 {
                 let moves = state.legalMoves()
-                XCTAssertFalse(moves.isEmpty, "No legal move in game \\(game)")
+                XCTAssertFalse(moves.isEmpty, "No legal move in game \(game)")
                 state.apply(chooseMove(moves, state))
                 steps += 1
                 let ids = allCardIDs(state)
-                XCTAssertEqual(ids.count, 36, "Card count changed in game \\(game)")
-                XCTAssertEqual(Set(ids).count, 36, "Duplicate/missing card in game \\(game)")
+                XCTAssertEqual(ids.count, 36, "Card count changed in game \(game)")
+                XCTAssertEqual(Set(ids).count, 36, "Duplicate/missing card in game \(game)")
             }
             if state.over { finishedGames += 1 } else { cappedDraws += 1 }
         }
         XCTAssertEqual(finishedGames + cappedDraws, 10_000)
-        print("10,000-game simulation: \\(finishedGames) finished; \\(cappedDraws) reached the 1,000-move draw cutoff")
+        print("10,000-game simulation: \(finishedGames) finished; \(cappedDraws) reached the 1,000-move draw cutoff")
     }
 
     func testMonteCarloReturnsLegalMove() {
@@ -51,14 +51,14 @@ final class DurakCoreTests: XCTestCase {
         var merge = DynamicArray<Card>(values)
         Sorts.mergeSort(&merge, key: { $0.id })
         let counting = Sorts.countingSort(values, k: 36, key: { $0.id })
-        XCTAssertEqual(merge.toArray().map(\\.id), counting.map(\\.id))
+        XCTAssertEqual(merge.toArray().map(\.id), counting.map(\.id))
     }
 
     func testShufflePreservesDeck() {
         var rng = FastRNG(seed: 123)
         var cards = DynamicArray<Card>((0..<36).map { Card(id: $0) })
         Sorts.fisherYates(&cards, using: &rng)
-        XCTAssertEqual(Set(cards.toArray().map(\\.id)), Set(0..<36))
+        XCTAssertEqual(Set(cards.toArray().map(\.id)), Set(0..<36))
     }
 
     func testTrumpAndSameSuitBeatingRules() {
