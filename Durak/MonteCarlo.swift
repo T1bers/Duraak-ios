@@ -23,7 +23,7 @@ enum MonteCarlo {
             seen.set(state.deck[0].id, 1)
         }
         var unseen = DynamicArray<Card>()
-        for id in 0..<36 where !seen.contains(id) { unseen.append(Card(id: id)) }
+        for id in 0..<state.deckSize where !seen.contains(id) { unseen.append(Card(id: id, deckSize: state.deckSize)) }
 
         var wins = [Double](repeating: 0, count: moves.count)
         var plays = 0
