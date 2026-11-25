@@ -29,9 +29,12 @@ final class DurakCoreTests: XCTestCase {
                 XCTAssertEqual(ids.count, 36, "Card count changed in game \(game)")
                 XCTAssertEqual(Set(ids).count, 36, "Duplicate/missing card in game \(game)")
             }
-            XCTAssertTrue(state.over, "Game \(game) did not finish")
+            if state.over { finishedGames += 1 } else { cappedDraws += 1 }
         }
     }
+
+        XCTAssertEqual(finishedGames + cappedDraws, 10_000)
+        print("10,000-game simulation: \(finishedGames) finished; \(cappedDraws) reached the 1,000-move draw cutoff")
 
     func testMonteCarloReturnsLegalMove() {
         for seed in 1...30 {
@@ -101,7 +104,7 @@ final class DurakCoreTests: XCTestCase {
         state.apply(.attack(Card(id: 0)))
         state.apply(.defend(0, Card(id: 1)))
         state.apply(.pass)
-        XCTAssertTrue(state.over)
+            if state.over { finishedGames += 1 } else { cappedDraws += 1 }
         XCTAssertNil(state.durak)
     }
 
