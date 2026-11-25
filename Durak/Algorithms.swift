@@ -68,7 +68,7 @@ enum Sorts {
 enum Bench {
     static func run() -> String {
         var rng = FastRNG(seed: 12345)
-        var out = "Сортировка 36-карточных ключей, среднее из 50 запусков\n\n"
+        var out = "Sorting 36-card keys, average of 50 runs\n\n"
         for n in [36, 1000, 10000, 100000] {
             var base = [Card]()
             for _ in 0..<n { base.append(Card(id: Int.random(in: 0..<36, using: &rng))) }
@@ -82,7 +82,7 @@ enum Bench {
                 let t1 = DispatchTime.now().uptimeNanoseconds
                 let r = Sorts.countingSort(base, k: 36, key: { $0.id })
                 tc += DispatchTime.now().uptimeNanoseconds - t1
-                if r.count != n || arr.count != n { out += "ошибка\n" }
+                if r.count != n || arr.count != n { out += "error\n" }
             }
             out += String(format: "n=%d\n  merge: %.3f ms\n  counting: %.3f ms\n", n, Double(tm) / 50 / 1e6, Double(tc) / 50 / 1e6)
         }
