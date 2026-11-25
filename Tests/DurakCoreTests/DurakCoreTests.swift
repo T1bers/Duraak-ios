@@ -13,7 +13,9 @@ final class DurakCoreTests: XCTestCase {
         }
     }
 
-    func testTenThousandGamesPreserveAllCardsAndFinish() {
+    func testTenThousandGamesPreserveAllCardsAndFinishOrReachDrawLimit() {
+        var finishedGames = 0
+        var cappedDraws = 0
         for game in 0..<10_000 {
             var rng = FastRNG(seed: UInt64(game + 1))
             var state = GameState.newGame(players: 2 + game % 3, using: &rng)
@@ -55,6 +57,90 @@ final class DurakCoreTests: XCTestCase {
         var cards = DynamicArray<Card>((0..<36).map { Card(id: $0) })
         Sorts.fisherYates(&cards, using: &rng)
         XCTAssertEqual(Set(cards.toArray().map(\.id)), Set(0..<36))
+    }
+
+
+    func testTrumpAndSameSuitBeatingRules() {
+        var queue = CircularQueue<Int>(capacity: 2)
+        queue.enqueue(0); queue.enqueue(1)
+        let hands = [
+            DynamicArray<Card>([Card(id: 0)]),
+            DynamicArray<Card>([Card(id: 2)])
+        ]
+        let state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts, order: queue)
+        XCTAssertTrue(state.beats(Card(id: 2), Card(id: 0)))       // higher same suit
+        XCTAssertTrue(state.beats(Card(id: 27), Card(id: 0)))      // trump beats non-trump
+        XCTAssertTrue(state.beats(Card(id: 28), Card(id: 27)))     // higher trump beats trump
+        XCTAssertFalse(state.beats(Card(id: 27), Card(id: 28)))   // lower trump cannot beat trump
+        XCTAssertFalse(state.beats(Card(id: 11), Card(id: 27)))   // non-trump cannot beat trump
+    }
+
+    func testAttackerCanOnlyAddRanksAlreadyOnTable() {
+        var queue = CircularQueue<Int>(capacity: 2)
+        queue.enqueue(0); queue.enqueue(1)
+        let hands = [
+            DynamicArray<Card>([Card(id: 0), Card(id: 9), Card(id: 10)]),
+            DynamicArray<Card>([Card(id: 2), Card(id: 3)])
+        ]
+        var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts, order: queue)
+        state.apply(.attack(Card(id: 0)))
+        state.apply(.defend(0, Card(id: 2)))
+        let moves = state.legalMoves()
+        XCTAssertTrue(moves.contains(.attack(Card(id: 9))))   // rank 6 already on table
+        XCTAssertTrue(moves.contains(.attack(Card(id: 10))) == false) // rank 7 is not on table
+    }
+
+    func testAllPlayersOutTogetherIsADraw() {
+        var queue = CircularQueue<Int>(capacity: 2)
+        queue.enqueue(0); queue.enqueue(1)
+        let hands = [
+            DynamicArray<Card>([Card(id: 0)]),
+            DynamicArray<Card>([Card(id: 1)])
+        ]
+        var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts, order: queue)
+        state.apply(.attack(Card(id: 0)))
+        state.apply(.defend(0, Card(id: 1)))
+        state.apply(.pass)
+        XCTAssertTrue(state.over)
+        XCTAssertNil(state.durak)
+    }
+
+    func testStackQueueAndHashTableOperations() {
+        var stack = Stack<Int>()
+        XCTAssertTrue(stack.isEmpty)
+        stack.push(10); stack.push(20)
+        XCTAssertEqual(stack.pop(), 20)
+        XCTAssertEqual(stack.peek(), 10)
+
+        var queue = CircularQueue<Int>(capacity: 4)
+        for value in 0..<4 { queue.enqueue(value) }
+        queue.rotate(by: 2)
+        XCTAssertEqual((0..<queue.count).map { queue[$0] }, [2, 3, 0, 1])
+        queue.remove(3)
+        XCTAssertEqual((0..<queue.count).map { queue[$0] }, [2, 0, 1])
+
+        var table = HashTable(capacity: 2)
+        for value in 0..<100 { table.set(value, value * 2) }
+        for value in 0..<100 { XCTAssertEqual(table.get(value), value * 2) }
+        XCTAssertTrue(table.remove(50))
+        XCTAssertFalse(table.contains(50))
+    }
+
+    func testShufflePositionDistributionWithChiSquare() {
+        var rng = FastRNG(seed: 20261125)
+        var counts = [Int](repeating: 0, count: 36)
+        let samples = 2_000
+        for _ in 0..<samples {
+            var cards = DynamicArray<Card>((0..<36).map { Card(id: $0) })
+            Sorts.fisherYates(&cards, using: &rng)
+            counts[cards[0].id] += 1
+        }
+        let expected = Double(samples) / 36.0
+        let chiSquare = counts.reduce(0.0) { partial, observed in
+            let delta = Double(observed) - expected
+            return partial + delta * delta / expected
+        }
+        XCTAssertLessThan(chiSquare, 70.0, "Shuffle first-position chi-square was \\(chiSquare)")
     }
 
     private func chooseMove(_ moves: [Move], _ state: GameState) -> Move {
