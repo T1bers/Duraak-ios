@@ -9,12 +9,14 @@ final class GameVM: ObservableObject {
     private(set) var history = Stack<GameState>()
     let playerCount: Int
     let budget: Double
+    let cheaterMode: Bool
     private var token = 0
     private var forceFairNextBotMove = false
 
-    init(players: Int, budget: Double) {
+    init(players: Int, budget: Double, cheaterMode: Bool = false) {
         self.playerCount = players
         self.budget = budget
+        self.cheaterMode = cheaterMode
         self.state = GameState.newGame(players: players)
         schedule()
     }
@@ -123,7 +125,7 @@ final class GameVM: ObservableObject {
             let caughtLastTime = forceFairNextBotMove
             forceFairNextBotMove = false
             var cheatCard: Card? = nil
-            if !caughtLastTime, snapshot.table.count > 0,
+            if cheaterMode, !caughtLastTime, snapshot.table.count > 0,
                snapshot.table.count < snapshot.roundLimit,
                Double.random(in: 0...1) < 0.16 {
                 let candidates = snapshot.hands[actor].toArray().filter { !snapshot.tableRanks.contains($0.rank) }
