@@ -6,6 +6,7 @@ struct GameConfig: Identifiable {
     let players: Int
     let budget: Double
     let cheaterMode: Bool
+    let playerTimeout: Int
 }
 
 struct RootView: View {
@@ -16,15 +17,15 @@ struct RootView: View {
         if showSplash {
             SplashView { showSplash = false }
         } else if let c = config {
-            GameView(players: c.players, budget: c.budget, cheaterMode: c.cheaterMode, onExit: { config = nil }).id(c.id)
+            GameView(players: c.players, budget: c.budget, cheaterMode: c.cheaterMode, playerTimeout: c.playerTimeout, onExit: { config = nil }).id(c.id)
         } else {
-            MenuView(onStart: { p, b, cheat in config = GameConfig(players: p, budget: b, cheaterMode: cheat) })
+            MenuView(onStart: { p, b, cheat, timeout in config = GameConfig(players: p, budget: b, cheaterMode: cheat, playerTimeout: timeout) })
         }
     }
 }
 
 struct MenuView: View {
-    var onStart: (Int, Double, Bool) -> Void
+    var onStart: (Int, Double, Bool, Int) -> Void
     @State private var opponents = 1
     @State private var level = 1
     @State private var showBench = false
@@ -32,6 +33,7 @@ struct MenuView: View {
     @State private var running = false
     @State private var showInfo = false
     @State private var cheaterMode = false
+    @State private var timeout = 30
 
     var body: some View {
         ZStack {
@@ -52,8 +54,15 @@ struct MenuView: View {
                 Toggle("Cheater bots (hidden cheating)", isOn: $cheaterMode)
                     .toggleStyle(.switch).tint(.yellow)
                     .foregroundColor(.white).padding(.horizontal, 30)
+                HStack {
+                    Text("Your turn limit").foregroundColor(.white)
+                    Spacer()
+                    Picker("Turn limit", selection: $timeout) {
+                        Text("15 sec").tag(15); Text("30 sec").tag(30); Text("60 sec").tag(60)
+                    }.pickerStyle(.menu).tint(.yellow)
+                }.padding(.horizontal, 30)
                 Button {
-                    onStart(opponents + 1, [0.15, 0.5, 0.9][level], cheaterMode)
+                    onStart(opponents + 1, [0.15, 0.5, 0.9][level], cheaterMode, timeout)
                 } label: {
                     Text("Create Game").font(.title2.bold()).frame(width: 220, height: 52)
                         .background(Color.yellow).foregroundColor(.black).cornerRadius(26)
@@ -212,8 +221,8 @@ struct GameView: View {
     @StateObject private var vm: GameVM
     var onExit: () -> Void
 
-    init(players: Int, budget: Double, cheaterMode: Bool, onExit: @escaping () -> Void) {
-        _vm = StateObject(wrappedValue: GameVM(players: players, budget: budget, cheaterMode: cheaterMode))
+    init(players: Int, budget: Double, cheaterMode: Bool, playerTimeout: Int, onExit: @escaping () -> Void) {
+        _vm = StateObject(wrappedValue: GameVM(players: players, budget: budget, cheaterMode: cheaterMode, playerTimeout: playerTimeout))
         self.onExit = onExit
     }
 
@@ -226,7 +235,7 @@ struct GameView: View {
                 Spacer(minLength: 0)
                 tableArea
                 Spacer(minLength: 0)
-                Text(vm.thinking ? "Bot is thinking…" : vm.message)
+                Text(vm.state.actor == 0 && !vm.state.over ? "Your turn · \(vm.remainingTime)s" : (vm.thinking ? "Bot is thinking…" : vm.message))
                     .font(.subheadline).foregroundColor(.white.opacity(0.9)).lineLimit(1)
                 actionButtons
                 handView
