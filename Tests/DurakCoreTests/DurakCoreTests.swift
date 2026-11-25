@@ -63,12 +63,11 @@ final class DurakCoreTests: XCTestCase {
     }
 
     func testCheaterCardCanBeCalledOutAndReturnedToBot() {
-        var queue = CircularQueue<Int>(capacity: 3)
-        queue.enqueue(1); queue.enqueue(0); queue.enqueue(2)
+        var queue = CircularQueue<Int>(capacity: 2)
+        queue.enqueue(1); queue.enqueue(0)
         let hands = [
             DynamicArray<Card>([Card(id: 11), Card(id: 20)]),
-            DynamicArray<Card>([Card(id: 9), Card(id: 12)]),
-            DynamicArray<Card>([Card(id: 18), Card(id: 19)])
+            DynamicArray<Card>([Card(id: 9), Card(id: 12)])
         ]
         var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts, order: queue)
         state.apply(.attack(Card(id: 9)))
