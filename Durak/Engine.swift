@@ -28,11 +28,12 @@ struct GameState: Sendable {
     var durak: Int? = nil
     var deckSize: Int = 36
     var transferEnabled: Bool = false
+    var drawOnMoveLimit: Bool = true
     // A hidden illegal throw-in can be challenged by the human player.
     var cheatingPlayer: Int? = nil
     var cheatingTableIndex: Int? = nil
 
-    init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>, deckSize: Int = 36, transferEnabled: Bool = false) {
+    init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true) {
         precondition((2...4).contains(hands.count), "Durak supports 2–4 players")
         self.hands = hands
         self.deck = deck
@@ -40,6 +41,7 @@ struct GameState: Sendable {
         self.order = order
         self.deckSize = deckSize
         self.transferEnabled = transferEnabled
+        self.drawOnMoveLimit = drawOnMoveLimit
         self.roundLimit = min(6, hands[order[1]].count)
     }
 
@@ -186,7 +188,15 @@ struct GameState: Sendable {
         // A hard cap turns pathological card-transfer cycles into a draw.
         if moveCount >= 1_000 && !over {
             over = true
-            durak = nil
+            if drawOnMoveLimit {
+                durak = nil
+            } else {
+                var lastPlayer = 0
+                for player in 1..<playerCount where hands[player].count > hands[lastPlayer].count {
+                    lastPlayer = player
+                }
+                durak = lastPlayer
+            }
         }
     }
 
@@ -249,12 +259,12 @@ struct GameState: Sendable {
         }
     }
 
-    static func newGame(players: Int, deckSize: Int = 36, transferEnabled: Bool = false) -> GameState {
+    static func newGame(players: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true) -> GameState {
         var rng = SystemRandomNumberGenerator()
-        return newGame(players: players, deckSize: deckSize, transferEnabled: transferEnabled, using: &rng)
+        return newGame(players: players, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, using: &rng)
     }
 
-    static func newGame<G: RandomNumberGenerator>(players n: Int, deckSize: Int = 36, transferEnabled: Bool = false, using rng: inout G) -> GameState {
+    static func newGame<G: RandomNumberGenerator>(players n: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, using rng: inout G) -> GameState {
         precondition((2...4).contains(n), "Durak supports 2–4 players")
         precondition(deckSize == 24 || deckSize == 36, "Deck size must be 24 or 36")
         var deck = DynamicArray<Card>()
@@ -279,6 +289,6 @@ struct GameState: Sendable {
 
         var order = CircularQueue<Int>(capacity: n)
         for offset in 0..<n { order.enqueue((first + offset) % n) }
-        return GameState(hands: hands, deck: deck, trump: trump, order: order, deckSize: deckSize, transferEnabled: transferEnabled)
+        return GameState(hands: hands, deck: deck, trump: trump, order: order, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit)
     }
 }
