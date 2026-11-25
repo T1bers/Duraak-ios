@@ -3,6 +3,7 @@ import Foundation
 enum Move: Equatable, Sendable {
     case attack(Card)
     case defend(Int, Card)
+    case transfer(Card)
     case take
     case pass
 }
@@ -84,6 +85,17 @@ struct GameState: Sendable {
             for card in hands[d] where beats(card, attack) {
                 moves.append(.defend(index, card))
             }
+            // Transfer Durak: the defender may pass the attack onward by
+            // adding a card of the same rank. Keep this disabled in 2-player games.
+            if order.count > 2, table.count < roundLimit {
+                let nextDefender = order[2]
+                let transferRank = table[index].attack.rank
+                if hands[nextDefender].count >= table.count + 1 {
+                    for card in hands[d] where card.rank == transferRank {
+                        moves.append(.transfer(card))
+                    }
+                }
+            }
             moves.append(.take)
         } else {
             if table.count == 0 {
@@ -156,6 +168,14 @@ struct GameState: Sendable {
             removeFromHand(defender, card)
             table[index].defense = card
             tableRanks.increment(card.rank)
+        case .transfer(let card):
+            let oldDefender = defender
+            removeFromHand(oldDefender, card)
+            table.append(Pair(attack: card, defense: nil))
+            tableRanks.increment(card.rank)
+            order.rotate(by: 1)
+            roundLimit = min(6, hands[order[1]].count)
+            defenderTaking = false
         case .take:
             defenderTaking = true
         case .pass:
