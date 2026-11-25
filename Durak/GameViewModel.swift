@@ -39,6 +39,7 @@ final class GameVM: ObservableObject {
             switch m {
             case .attack(let c) where c == card: chosen = m
             case .defend(_, let c) where c == card: chosen = m
+            case .transfer(let c) where c == card: chosen = m
             default: break
             }
         }
