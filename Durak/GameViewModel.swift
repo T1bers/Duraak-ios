@@ -4,7 +4,7 @@ import SwiftUI
 final class GameVM: ObservableObject {
     @Published var state: GameState
     @Published var thinking = false
-    @Published var message = "Твой ход"
+    @Published var message = "Your turn"
 
     private(set) var history = Stack<GameState>()
     let playerCount: Int
@@ -18,22 +18,9 @@ final class GameVM: ObservableObject {
         schedule()
     }
 
-    func name(_ p: Int) -> String { p == 0 ? "Ты" : "Бот \(p)" }
+    func name(_ p: Int) -> String { p == 0 ? "You" : "Bot \(p)" }
 
     var canUndo: Bool { !history.isEmpty && !state.over }
-
-    var legalCards: [Card] {
-        guard state.actor == 0 else { return [] }
-        var r = [Card]()
-        for m in state.legalMoves() {
-            switch m {
-            case .attack(let c): r.append(c)
-            case .defend(_, let c): r.append(c)
-            default: break
-            }
-        }
-        return r
-    }
 
     func humanPlay(_ card: Card) {
         guard state.actor == 0, !state.over else { return }
@@ -46,7 +33,7 @@ final class GameVM: ObservableObject {
             }
         }
         guard let m = chosen else {
-            message = "Этой картой нельзя"
+            message = "You cannot play this card"
             return
         }
         perform(m)
@@ -60,7 +47,7 @@ final class GameVM: ObservableObject {
         token += 1
         thinking = false
         state = history.pop()
-        message = "Ход отменён"
+        message = "Move undone"
         schedule()
     }
 
@@ -69,16 +56,16 @@ final class GameVM: ObservableObject {
         thinking = false
         history.removeAll()
         state = GameState.newGame(players: playerCount)
-        message = "Новая игра"
+        message = "New game"
         schedule()
     }
 
     private func describe(_ m: Move, by p: Int) -> String {
         switch m {
-        case .attack(let c): return "\(name(p)): ход \(c.label)"
-        case .defend(_, let c): return "\(name(p)): бьёт \(c.label)"
-        case .take: return "\(name(p)): беру"
-        case .pass: return state.defenderTaking ? "\(name(state.defender)) забирает карты" : "Бито"
+        case .attack(let c): return "\(name(p)) attacks with \(c.label)"
+        case .defend(_, let c): return "\(name(p)) beats with \(c.label)"
+        case .take: return "\(name(p)) takes the cards"
+        case .pass: return state.defenderTaking ? "\(name(state.defender)) takes the cards" : "All cards beaten"
         }
     }
 
