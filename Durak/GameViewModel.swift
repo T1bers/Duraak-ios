@@ -10,6 +10,7 @@ final class GameVM: ObservableObject {
     let playerCount: Int
     let budget: Double
     private var token = 0
+    private var forceFairNextBotMove = false
 
     init(players: Int, budget: Double) {
         self.playerCount = players
@@ -41,6 +42,14 @@ final class GameVM: ObservableObject {
 
     func humanTake() { if state.actor == 0 && state.legalMoves().contains(.take) { perform(.take) } }
     func humanPass() { if state.actor == 0 && state.legalMoves().contains(.pass) { perform(.pass) } }
+
+    func challengeCheat(at tableIndex: Int) {
+        guard state.cheatingTableIndex == tableIndex, state.challengeCheat() else { return }
+        token += 1
+        forceFairNextBotMove = true
+        message = "Cheating caught! The card was returned."
+        schedule()
+    }
 
     func undo() {
         guard canUndo else { return }
@@ -109,8 +118,23 @@ final class GameVM: ObservableObject {
             let startedAt = DispatchTime.now().uptimeNanoseconds
             let minimumThinkTime = UInt64.random(in: 1_100_000_000...1_700_000_000)
 
-            let move = await Task.detached(priority: .userInitiated) {
-                MonteCarlo.chooseMove(state: snapshot, player: actor, timeBudget: budget)
+            // Cheater mode is a hidden, occasional rule violation. Bots do not
+            // inspect other hands; they only sometimes throw an off-rank card.
+            let caughtLastTime = forceFairNextBotMove
+            forceFairNextBotMove = false
+            var cheatCard: Card? = nil
+            if !caughtLastTime, snapshot.table.count > 0,
+               snapshot.table.count < snapshot.roundLimit,
+               Double.random(in: 0...1) < 0.16 {
+                let candidates = snapshot.hands[actor].toArray().filter { !snapshot.tableRanks.contains($0.rank) }
+                cheatCard = candidates.randomElement()
+            }
+
+            let move: Move? = await Task.detached(priority: .userInitiated) {
+                if cheatCard == nil {
+                    return MonteCarlo.chooseMove(state: snapshot, player: actor, timeBudget: budget)
+                }
+                return nil
             }.value
 
             let elapsed = DispatchTime.now().uptimeNanoseconds - startedAt
@@ -120,7 +144,13 @@ final class GameVM: ObservableObject {
 
             guard myToken == token else { return }
             thinking = false
-            perform(move)
+            if let cheatCard, state.playCheat(cheatCard, by: actor) {
+                message = "Bot \(actor) added a card…"
+                token += 1
+                schedule()
+            } else if let move {
+                perform(move)
+            }
         }
     }
 }
