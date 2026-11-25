@@ -22,7 +22,7 @@ struct RootView: View {
         } else if let c = config {
             GameView(players: c.players, budget: c.budget, cheaterMode: c.cheaterMode, playerTimeout: c.playerTimeout, deckSize: c.deckSize, transferEnabled: c.transferEnabled, drawOnMoveLimit: c.drawOnMoveLimit, onExit: { config = nil }).id(c.id)
         } else {
-            MenuView(onStart: { p, b, cheat, timeout, deck, transferMode in config = GameConfig(players: p, budget: b, cheaterMode: cheat, playerTimeout: timeout, deckSize: deck, transferEnabled: transferMode, drawOnMoveLimit: drawOnMoveLimit) })
+            MenuView(onStart: { p, b, cheat, timeout, deck, transferMode, drawOnMoveLimit in config = GameConfig(players: p, budget: b, cheaterMode: cheat, playerTimeout: timeout, deckSize: deck, transferEnabled: transferMode, drawOnMoveLimit: drawOnMoveLimit) })
         }
     }
 }
