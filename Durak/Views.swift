@@ -5,28 +5,33 @@ struct GameConfig: Identifiable {
     let id = UUID()
     let players: Int
     let budget: Double
+    let cheaterMode: Bool
 }
 
 struct RootView: View {
     @State private var config: GameConfig? = nil
+    @State private var showSplash = true
 
     var body: some View {
-        if let c = config {
-            GameView(players: c.players, budget: c.budget, onExit: { config = nil }).id(c.id)
+        if showSplash {
+            SplashView { showSplash = false }
+        } else if let c = config {
+            GameView(players: c.players, budget: c.budget, cheaterMode: c.cheaterMode, onExit: { config = nil }).id(c.id)
         } else {
-            MenuView(onStart: { p, b in config = GameConfig(players: p, budget: b) })
+            MenuView(onStart: { p, b, cheat in config = GameConfig(players: p, budget: b, cheaterMode: cheat) })
         }
     }
 }
 
 struct MenuView: View {
-    var onStart: (Int, Double) -> Void
+    var onStart: (Int, Double, Bool) -> Void
     @State private var opponents = 1
     @State private var level = 1
     @State private var showBench = false
     @State private var benchText = ""
     @State private var running = false
     @State private var showInfo = false
+    @State private var cheaterMode = false
 
     var body: some View {
         ZStack {
@@ -44,10 +49,13 @@ struct MenuView: View {
                         Text("Easy").tag(0); Text("Medium").tag(1); Text("Hard").tag(2)
                     }.pickerStyle(.segmented)
                 }.padding(.horizontal, 30)
+                Toggle("Cheater bots (hidden cheating)", isOn: $cheaterMode)
+                    .toggleStyle(.switch).tint(.yellow)
+                    .foregroundColor(.white).padding(.horizontal, 30)
                 Button {
-                    onStart(opponents + 1, [0.15, 0.5, 0.9][level])
+                    onStart(opponents + 1, [0.15, 0.5, 0.9][level], cheaterMode)
                 } label: {
-                    Text("Play").font(.title2.bold()).frame(width: 200, height: 52)
+                    Text("Create Game").font(.title2.bold()).frame(width: 220, height: 52)
                         .background(Color.yellow).foregroundColor(.black).cornerRadius(26)
                 }
                 Button("Sorting Test") { showBench = true }.foregroundColor(.white.opacity(0.85))
@@ -80,6 +88,33 @@ struct MenuView: View {
                     }
                 }.disabled(running)
             }.padding()
+        }
+    }
+}
+
+struct SplashView: View {
+    var onContinue: () -> Void
+    @State private var visible = false
+
+    var body: some View {
+        ZStack {
+            Table.background
+            VStack(spacing: 18) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14).fill(Color.white).frame(width: 82, height: 118).rotationEffect(.degrees(-12)).offset(x: -18)
+                    RoundedRectangle(cornerRadius: 14).fill(Color.white).frame(width: 82, height: 118).overlay {
+                        VStack(spacing: 4) { Text("A").font(.system(size: 30, weight: .black)); Text("♠").font(.system(size: 34)) }
+                            .foregroundColor(.black)
+                    }.rotationEffect(.degrees(10)).offset(x: 18)
+                }.frame(height: 140)
+                Text("DURAK").font(.system(size: 48, weight: .black, design: .serif)).tracking(5).foregroundColor(.white)
+                Text("CARD GAME").font(.caption.weight(.semibold)).tracking(4).foregroundColor(.white.opacity(0.75))
+            }
+            .opacity(visible ? 1 : 0.35).scaleEffect(visible ? 1 : 0.94)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.8)) { visible = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: onContinue)
         }
     }
 }
@@ -177,8 +212,8 @@ struct GameView: View {
     @StateObject private var vm: GameVM
     var onExit: () -> Void
 
-    init(players: Int, budget: Double, onExit: @escaping () -> Void) {
-        _vm = StateObject(wrappedValue: GameVM(players: players, budget: budget))
+    init(players: Int, budget: Double, cheaterMode: Bool, onExit: @escaping () -> Void) {
+        _vm = StateObject(wrappedValue: GameVM(players: players, budget: budget, cheaterMode: cheaterMode))
         self.onExit = onExit
     }
 
@@ -246,7 +281,10 @@ struct GameView: View {
                         if let d = p.defense {
                             CardView(card: d, width: 56).offset(x: 16, y: 18).rotationEffect(.degrees(6))
                         }
-                    }.frame(width: 84, height: 104, alignment: .topLeading)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { vm.challengeCheat(at: i) }
+                    .frame(width: 84, height: 104, alignment: .topLeading)
                 }
             }
         }
