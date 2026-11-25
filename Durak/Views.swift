@@ -10,6 +10,7 @@ struct GameConfig: Identifiable {
     let deckSize: Int
     let transferEnabled: Bool
     let drawOnMoveLimit: Bool
+    let throwInScope: ThrowInScope
 }
 
 struct RootView: View {
@@ -20,15 +21,15 @@ struct RootView: View {
         if showSplash {
             SplashView { showSplash = false }
         } else if let c = config {
-            GameView(players: c.players, budget: c.budget, cheaterMode: c.cheaterMode, playerTimeout: c.playerTimeout, deckSize: c.deckSize, transferEnabled: c.transferEnabled, drawOnMoveLimit: c.drawOnMoveLimit, onExit: { config = nil }).id(c.id)
+            GameView(players: c.players, budget: c.budget, cheaterMode: c.cheaterMode, playerTimeout: c.playerTimeout, deckSize: c.deckSize, transferEnabled: c.transferEnabled, drawOnMoveLimit: c.drawOnMoveLimit, throwInScope: c.throwInScope, onExit: { config = nil }).id(c.id)
         } else {
-            MenuView(onStart: { p, b, cheat, timeout, deck, transferMode, drawOnMoveLimit in config = GameConfig(players: p, budget: b, cheaterMode: cheat, playerTimeout: timeout, deckSize: deck, transferEnabled: transferMode, drawOnMoveLimit: drawOnMoveLimit) })
+            MenuView(onStart: { p, b, cheat, timeout, deck, transferMode, drawOnMoveLimit in config = GameConfig(players: p, budget: b, cheaterMode: cheat, playerTimeout: timeout, deckSize: deck, transferEnabled: transferMode, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope) })
         }
     }
 }
 
 struct MenuView: View {
-    var onStart: (Int, Double, Bool, Int, Int, Bool, Bool) -> Void
+    var onStart: (Int, Double, Bool, Int, Int, Bool, Bool, ThrowInScope) -> Void
     @State private var opponents = 1
     @State private var level = 1
     @State private var showBench = false
@@ -40,6 +41,7 @@ struct MenuView: View {
     @State private var deck = 36
     @State private var transferMode = false
     @State private var drawOnMoveLimit = true
+    @State private var throwInScope: ThrowInScope = .neighbors
 
     var body: some View {
         ZStack {
@@ -71,6 +73,13 @@ struct MenuView: View {
                     .toggleStyle(.switch).tint(.yellow)
                     .foregroundColor(.white).padding(.horizontal, 30)
                 HStack {
+                    Text("Attackers").foregroundColor(.white)
+                    Spacer()
+                    Picker("Attackers", selection: $throwInScope) {
+                        Text("Neighbors").tag(ThrowInScope.neighbors); Text("All players").tag(ThrowInScope.all)
+                    }.pickerStyle(.menu).tint(.yellow)
+                }.padding(.horizontal, 30)
+                HStack {
                     Text("Ending rule").foregroundColor(.white)
                     Spacer()
                     Picker("Ending rule", selection: $drawOnMoveLimit) {
@@ -85,7 +94,7 @@ struct MenuView: View {
                     }.pickerStyle(.menu).tint(.yellow)
                 }.padding(.horizontal, 30)
                 Button {
-                    onStart(opponents + 1, [0.15, 0.5, 0.9][level], cheaterMode, timeout, deck, transferMode, drawOnMoveLimit)
+                    onStart(opponents + 1, [0.15, 0.5, 0.9][level], cheaterMode, timeout, deck, transferMode, drawOnMoveLimit, throwInScope)
                 } label: {
                     Text("Create Game").font(.title2.bold()).frame(width: 220, height: 52)
                         .background(Color.yellow).foregroundColor(.black).cornerRadius(26)
@@ -246,8 +255,8 @@ struct GameView: View {
     @StateObject private var vm: GameVM
     var onExit: () -> Void
 
-    init(players: Int, budget: Double, cheaterMode: Bool, playerTimeout: Int, deckSize: Int, transferEnabled: Bool, drawOnMoveLimit: Bool, onExit: @escaping () -> Void) {
-        _vm = StateObject(wrappedValue: GameVM(players: players, budget: budget, cheaterMode: cheaterMode, playerTimeout: playerTimeout, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit))
+    init(players: Int, budget: Double, cheaterMode: Bool, playerTimeout: Int, deckSize: Int, transferEnabled: Bool, drawOnMoveLimit: Bool, throwInScope: ThrowInScope, onExit: @escaping () -> Void) {
+        _vm = StateObject(wrappedValue: GameVM(players: players, budget: budget, cheaterMode: cheaterMode, playerTimeout: playerTimeout, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope))
         self.onExit = onExit
     }
 
