@@ -31,7 +31,6 @@ final class DurakCoreTests: XCTestCase {
             }
             if state.over { finishedGames += 1 } else { cappedDraws += 1 }
         }
-    }
 
         XCTAssertEqual(finishedGames + cappedDraws, 10_000)
         print("10,000-game simulation: \(finishedGames) finished; \(cappedDraws) reached the 1,000-move draw cutoff")
