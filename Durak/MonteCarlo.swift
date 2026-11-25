@@ -99,6 +99,9 @@ enum MonteCarlo {
                 let attack = state.table[index].attack
                 score = Double(card.rank - attack.rank)
                 if card.suit == state.trump && attack.suit != state.trump { score += 5.0 }
+            case .transfer(let card):
+                score = Double(card.rank - 6) + 2.0
+                if card.suit == state.trump { score += 4.0 }
             case .take:
                 score = 7.5 + Double(state.undefendedCount) * 0.6
                 if state.hands[state.defender].count >= 5 { score -= 1.0 }
