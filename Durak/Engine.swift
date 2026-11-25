@@ -263,6 +263,7 @@ struct GameState: Sendable {
             durak = order.count == 1 ? order[0] : nil
         } else {
             roundLimit = min(6, hands[order[1]].count)
+            throwInCursor = attacker
         }
     }
 
