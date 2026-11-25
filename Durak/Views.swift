@@ -26,37 +26,52 @@ struct MenuView: View {
     @State private var showBench = false
     @State private var benchText = ""
     @State private var running = false
+    @State private var showInfo = false
 
     var body: some View {
         ZStack {
             Table.background
             VStack(spacing: 22) {
-                Text("Дурак").font(.system(size: 54, weight: .heavy, design: .serif)).foregroundColor(.white)
-                Text("против Monte Carlo бота").foregroundColor(.white.opacity(0.8))
+                Text("Durak").font(.system(size: 54, weight: .heavy, design: .serif)).foregroundColor(.white)
+                Text("vs Monte Carlo AI").foregroundColor(.white.opacity(0.8))
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Соперники").foregroundColor(.white).font(.headline)
+                    Text("Opponents").foregroundColor(.white).font(.headline)
                     Picker("", selection: $opponents) {
                         Text("1").tag(1); Text("2").tag(2); Text("3").tag(3)
                     }.pickerStyle(.segmented)
-                    Text("Сложность").foregroundColor(.white).font(.headline).padding(.top, 8)
+                    Text("Difficulty").foregroundColor(.white).font(.headline).padding(.top, 8)
                     Picker("", selection: $level) {
-                        Text("Лёгкий").tag(0); Text("Средний").tag(1); Text("Сложный").tag(2)
+                        Text("Easy").tag(0); Text("Medium").tag(1); Text("Hard").tag(2)
                     }.pickerStyle(.segmented)
                 }.padding(.horizontal, 30)
                 Button {
                     onStart(opponents + 1, [0.15, 0.5, 0.9][level])
                 } label: {
-                    Text("Играть").font(.title2.bold()).frame(width: 200, height: 52)
+                    Text("Play").font(.title2.bold()).frame(width: 200, height: 52)
                         .background(Color.yellow).foregroundColor(.black).cornerRadius(26)
                 }
-                Button("Тест сортировок") { showBench = true }.foregroundColor(.white.opacity(0.85))
+                Button("Sorting Test") { showBench = true }.foregroundColor(.white.opacity(0.85))
+            }
+
+            .overlay(alignment: .topTrailing) {
+                Button { showInfo = true } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 27, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(12)
+                        .background(Color.black.opacity(0.18), in: Circle())
+                }
+                .padding(.top, 12)
+                .padding(.trailing, 18)
+                .accessibilityLabel("Game information")
             }
         }
+        .sheet(isPresented: $showInfo) { InfoView() }
         .sheet(isPresented: $showBench) {
             VStack(spacing: 16) {
-                Text("Merge sort vs Counting sort").font(.headline)
+                Text("Merge Sort vs Counting Sort").font(.headline)
                 ScrollView { Text(benchText).font(.system(.body, design: .monospaced)).frame(maxWidth: .infinity, alignment: .leading) }
-                Button(running ? "Идёт замер…" : "Запустить") {
+                Button(running ? "Testing…" : "Run Test") {
                     running = true
                     Task {
                         let t = await Task.detached { Bench.run() }.value
@@ -65,6 +80,48 @@ struct MenuView: View {
                     }
                 }.disabled(running)
             }.padding()
+        }
+    }
+}
+
+struct InfoView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("How to Play").font(.title.bold())
+                    Text("Durak is a card game for 2–4 players. The goal is to get rid of all your cards. The last player left holding cards is the Durak.")
+                    rule("1. Deal", "Each player starts with 6 cards. The remaining cards form the draw pile. One card is revealed to show the trump suit.")
+                    rule("2. Attack", "The attacker plays a card. The defender must beat it with a higher card of the same suit or any trump card.")
+                    rule("3. Add cards", "The attacker may add cards matching a rank already on the table. The number of attacking cards cannot exceed the defender’s hand.")
+                    rule("4. Take or defend", "If you cannot or do not want to defend, choose Take and collect all cards on the table. If every attack is beaten, choose Done.")
+                    rule("5. Refill", "After a round, players draw back up to 6 cards while cards remain in the deck. The attacker draws first and the defender last.")
+                    rule("6. Win", "When the deck is empty, players who run out of cards leave the game. The last player with cards loses.")
+                    Divider().overlay(Color.white.opacity(0.25))
+                    Text("Developers").font(.title2.bold())
+                    Text("Alan and Shoxrux").font(.title3).foregroundColor(.yellow)
+                }
+                .foregroundColor(.white)
+                .padding(22)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(Table.background)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") { dismiss() }.foregroundColor(.white)
+                }
+            }
+            .toolbarBackground(.hidden, for: .navigationBar)
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func rule(_ title: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.headline).foregroundColor(.yellow)
+            Text(detail).font(.body)
         }
     }
 }
@@ -132,7 +189,7 @@ struct GameView: View {
                 Spacer(minLength: 0)
                 tableArea
                 Spacer(minLength: 0)
-                Text(vm.thinking ? "\(vm.message) · бот думает…" : vm.message)
+                Text(vm.thinking ? "\(vm.message) · AI is thinking…" : vm.message)
                     .font(.subheadline).foregroundColor(.white.opacity(0.9)).lineLimit(1)
                 actionButtons
                 handView
@@ -144,9 +201,9 @@ struct GameView: View {
 
     private var topBar: some View {
         HStack {
-            Button("‹ Меню") { onExit() }.foregroundColor(.white)
+            Button("‹ Menu") { onExit() }.foregroundColor(.white)
             Spacer()
-            Text("Козырь \(vm.state.trump.symbol)")
+            Text("Trump: \(vm.state.trump.symbol)")
                 .font(.headline).foregroundColor(.white)
                 .padding(.horizontal, 12).padding(.vertical, 4)
                 .background(Capsule().fill(Color.black.opacity(0.3)))
@@ -165,7 +222,7 @@ struct GameView: View {
                         Text(out ? "✓" : "🤖").font(.title2)
                         Circle().stroke(active ? Color.yellow : Color.clear, lineWidth: 3).frame(width: 46, height: 46)
                     }
-                    Text("Бот \(p)\(st.over ? "" : (st.attacker == p ? " ⚔️" : (st.defender == p ? " 🛡️" : "")))")
+                    Text("AI \(p)\(st.over ? "" : (st.attacker == p ? " ⚔️" : (st.defender == p ? " 🛡️" : "")))")
                         .font(.caption.bold()).foregroundColor(.white)
                     HStack(spacing: -20) {
                         ForEach(0..<min(st.hands[p].count, 8), id: \.self) { _ in CardView(width: 30) }
@@ -209,12 +266,12 @@ struct GameView: View {
     private var actionButtons: some View {
         let moves = vm.state.actor == 0 ? vm.state.legalMoves() : []
         return HStack(spacing: 10) {
-            Button { vm.undo() } label: { pill("↩︎ Отмена", Color.white.opacity(0.85)) }.disabled(!vm.canUndo)
+            Button { vm.undo() } label: { pill("↩︎ Undo", Color.white.opacity(0.85)) }.disabled(!vm.canUndo)
             if moves.contains(.take) {
-                Button { vm.humanTake() } label: { pill("Беру", Color.orange) }
+                Button { vm.humanTake() } label: { pill("Take", Color.orange) }
             }
             if moves.contains(.pass) {
-                Button { vm.humanPass() } label: { pill(vm.state.defenderTaking ? "Пусть берёт" : "Бито", Color.yellow) }
+                Button { vm.humanPass() } label: { pill(vm.state.defenderTaking ? "Let take" : "Done", Color.yellow) }
             }
         }.frame(height: 40)
     }
@@ -230,14 +287,10 @@ struct GameView: View {
         var h = st.hands[0]
         Sorts.mergeSort(&h, key: { st.sortKey($0) })
         let cards = h.toArray()
-        let legal = vm.legalCards
-        let myTurn = st.actor == 0
-        return ScrollView(.horizontal, showsIndicators: false) {
+                return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: -22) {
                 ForEach(cards, id: \.id) { c in
-                    let ok = legal.contains(c)
-                    CardView(card: c, width: 64, dimmed: myTurn && !ok)
-                        .offset(y: myTurn && ok ? -14 : 0)
+                    CardView(card: c, width: 64)
                         .onTapGesture { vm.humanPlay(c) }
                 }
             }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 6)
@@ -246,14 +299,14 @@ struct GameView: View {
 
     private var overlay: some View {
         let d = vm.state.durak
-        let title = d == 0 ? "Ты остался в дураках 🤡" : (d == nil ? "Ничья 🤝" : "Победа! 🎉")
+        let title = d == 0 ? "You are the Durak 🤡" : (d == nil ? "Draw 🤝" : "You win! 🎉")
         return ZStack {
             Color.black.opacity(0.6).ignoresSafeArea()
             VStack(spacing: 16) {
                 Text(title).font(.title.bold()).foregroundColor(.white)
-                if let d = d, d != 0 { Text("Дурак: Бот \(d)").foregroundColor(.white.opacity(0.85)) }
-                Button { vm.restart() } label: { pill("Ещё раз", .yellow) }
-                Button { onExit() } label: { pill("В меню", .white) }
+                if let d = d, d != 0 { Text("Durak: AI \(d)").foregroundColor(.white.opacity(0.85)) }
+                Button { vm.restart() } label: { pill("Play Again", .yellow) }
+                Button { onExit() } label: { pill("Main Menu", .white) }
             }
         }
     }
