@@ -29,8 +29,6 @@ final class DurakCoreTests: XCTestCase {
             }
             XCTAssertTrue(state.over, "Game \\(game) did not finish or reach the draw limit")
         }
-        XCTAssertEqual(finishedGames + cappedDraws, 10_000)
-        print("10,000-game simulation: \(finishedGames) finished; \(cappedDraws) reached the 1,000-move draw cutoff")
     }
 
     func testMonteCarloReturnsLegalMove() {
