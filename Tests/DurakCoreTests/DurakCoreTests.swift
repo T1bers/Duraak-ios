@@ -33,6 +33,35 @@ final class DurakCoreTests: XCTestCase {
 
 
 
+
+    func testNeighborAndAllThrowInScopesChooseDifferentNextPlayers() {
+        func preparedState(scope: ThrowInScope) -> GameState {
+            var queue = CircularQueue<Int>(capacity: 4)
+            queue.enqueue(0); queue.enqueue(1); queue.enqueue(2); queue.enqueue(3)
+            let hands = [
+                DynamicArray<Card>([Card(id: 0), Card(id: 1)]),
+                DynamicArray<Card>([Card(id: 2), Card(id: 3)]),
+                DynamicArray<Card>([Card(id: 9), Card(id: 10)]),
+                DynamicArray<Card>([Card(id: 18), Card(id: 19)])
+            ]
+            var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts,
+                                  order: queue, throwInScope: scope)
+            state.apply(.attack(Card(id: 0)))
+            state.apply(.defend(0, Card(id: 2)))
+            return state
+        }
+
+        var neighbors = preparedState(scope: .neighbors)
+        XCTAssertEqual(neighbors.actor, 2)
+        neighbors.apply(.pass)
+        XCTAssertEqual(neighbors.actor, 0)
+
+        var all = preparedState(scope: .all)
+        XCTAssertEqual(all.actor, 2)
+        all.apply(.pass)
+        XCTAssertEqual(all.actor, 3)
+    }
+
     func testCheaterCardCanBeCalledOutAndReturnedToBot() {
         var queue = CircularQueue<Int>(capacity: 3)
         queue.enqueue(1); queue.enqueue(0); queue.enqueue(2)
