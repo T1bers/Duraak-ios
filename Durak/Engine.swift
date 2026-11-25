@@ -1,6 +1,6 @@
 import Foundation
 
-enum ThrowInScope: Sendable { case neighbors, all }
+enum ThrowInScope: String, Sendable, Hashable { case neighbors, all }
 
 enum Move: Equatable, Sendable {
     case attack(Card)
