@@ -25,16 +25,18 @@ struct GameState: Sendable {
     var moveCount = 0
     var over = false
     var durak: Int? = nil
+    var deckSize: Int = 36
     // A hidden illegal throw-in can be challenged by the human player.
     var cheatingPlayer: Int? = nil
     var cheatingTableIndex: Int? = nil
 
-    init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>) {
+    init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>, deckSize: Int = 36) {
         precondition((2...4).contains(hands.count), "Durak supports 2–4 players")
         self.hands = hands
         self.deck = deck
         self.trump = trump
         self.order = order
+        self.deckSize = deckSize
         self.roundLimit = min(6, hands[order[1]].count)
     }
 
@@ -225,15 +227,16 @@ struct GameState: Sendable {
         }
     }
 
-    static func newGame(players: Int) -> GameState {
+    static func newGame(players: Int, deckSize: Int = 36) -> GameState {
         var rng = SystemRandomNumberGenerator()
-        return newGame(players: players, using: &rng)
+        return newGame(players: players, deckSize: deckSize, using: &rng)
     }
 
-    static func newGame<G: RandomNumberGenerator>(players n: Int, using rng: inout G) -> GameState {
+    static func newGame<G: RandomNumberGenerator>(players n: Int, deckSize: Int = 36, using rng: inout G) -> GameState {
         precondition((2...4).contains(n), "Durak supports 2–4 players")
+        precondition(deckSize == 24 || deckSize == 36, "Deck size must be 24 or 36")
         var deck = DynamicArray<Card>()
-        for id in 0..<36 { deck.append(Card(id: id)) }
+        for id in 0..<deckSize { deck.append(Card(id: id, deckSize: deckSize)) }
         Sorts.fisherYates(&deck, using: &rng)
 
         let trump = deck[0].suit
@@ -254,6 +257,6 @@ struct GameState: Sendable {
 
         var order = CircularQueue<Int>(capacity: n)
         for offset in 0..<n { order.enqueue((first + offset) % n) }
-        return GameState(hands: hands, deck: deck, trump: trump, order: order)
+        return GameState(hands: hands, deck: deck, trump: trump, order: order, deckSize: deckSize)
     }
 }
