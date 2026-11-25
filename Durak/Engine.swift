@@ -178,16 +178,12 @@ struct GameState: Sendable {
         case .take:
             defenderTaking = true
         case .pass:
-            if defenderTaking {
-                finishRound()
+            let passingPlayer = actor
+            throwInPassed.insert(passingPlayer)
+            if let next = nextThrowIn(after: passingPlayer, excluding: throwInPassed) {
+                throwInCursor = next
             } else {
-                let passingPlayer = actor
-                throwInPassed.insert(passingPlayer)
-                if let next = nextThrowIn(after: passingPlayer, excluding: throwInPassed) {
-                    throwInCursor = next
-                } else {
-                    finishRound()
-                }
+                finishRound()
             }
         }
         // A hard cap turns pathological card-transfer cycles into a draw.
