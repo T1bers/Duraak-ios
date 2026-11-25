@@ -31,6 +31,17 @@ final class DurakCoreTests: XCTestCase {
         }
     }
 
+
+    func testTwentyFourCardDeckUsesNineThroughAce() {
+        var rng = FastRNG(seed: 2400)
+        let state = GameState.newGame(players: 3, deckSize: 24, using: &rng)
+        XCTAssertEqual(state.deck.count + state.hands.reduce(0) { $0 + $1.count }, 24)
+        let allCards = (0..<24).map { Card(id: $0, deckSize: 24) }
+        XCTAssertEqual(Set(allCards.map(\.suit)).count, 4)
+        XCTAssertEqual(allCards.map(\.rank).min(), 9)
+        XCTAssertEqual(allCards.map(\.rank).max(), 14)
+    }
+
     func testMonteCarloReturnsLegalMove() {
         for seed in 1...30 {
             var rng = FastRNG(seed: UInt64(seed))
@@ -151,6 +162,7 @@ final class DurakCoreTests: XCTestCase {
             case .defend(let index, let card):
                 let attack = state.table[index].attack
                 score = Double(card.rank - attack.rank) + (card.suit == state.trump && attack.suit != state.trump ? 5 : 0)
+            case .transfer(let card): score = Double(card.rank - 6) + (card.suit == state.trump ? 5 : 0)
             case .take: score = 7 + Double(state.undefendedCount)
             case .pass: score = 6
             }
