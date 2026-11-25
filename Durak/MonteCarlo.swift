@@ -2,6 +2,7 @@ import Foundation
 
 enum MonteCarlo {
     /// For each legal move plays many random games to the end; picks the best win rate.
+    /// Rollouts use a lightweight card-cost policy instead of choosing every move uniformly at random.
     static func chooseMove(state: GameState, player: Int, timeBudget: Double, maxPlayouts: Int = 4000) -> Move {
         let moves = state.legalMoves()
         if moves.count <= 1 { return moves.first ?? .pass }
@@ -71,11 +72,47 @@ enum MonteCarlo {
         var plies = 0
         while !st.over && plies < 400 {
             let moves = st.legalMoves()
-            st.apply(moves[Int.random(in: 0..<moves.count, using: &rng)])
+            guard !moves.isEmpty else { break }
+            let selected = rolloutMove(moves, state: st, rng: &rng)
+            st.apply(selected)
             plies += 1
         }
         if !st.over { return 0.5 }
         guard let loser = st.durak else { return 0.5 }
         return loser == me ? 0 : 1
+    }
+
+    /// A small stochastic policy for simulated games:
+    /// spend low cards first, preserve trumps when possible, and avoid wasteful attacks.
+    private static func rolloutMove(_ moves: [Move], state: GameState, rng: inout FastRNG) -> Move {
+        var bestMove = moves[0]
+        var bestScore = Double.greatestFiniteMagnitude
+
+        for move in moves {
+            var score: Double
+            switch move {
+            case .attack(let card):
+                score = Double(card.rank - 6)
+                if card.suit == state.trump { score += 5.0 }
+                if state.table.count > 0 { score += 1.5 }
+            case .defend(let index, let card):
+                let attack = state.table[index].attack
+                score = Double(card.rank - attack.rank)
+                if card.suit == state.trump && attack.suit != state.trump { score += 5.0 }
+            case .take:
+                score = 7.5 + Double(state.undefendedCount) * 0.6
+                if state.hands[state.defender].count >= 5 { score -= 1.0 }
+            case .pass:
+                score = 1.8
+            }
+
+            // Small noise keeps simulated opponents varied without making their play random.
+            score += Double.random(in: 0...1.2, using: &rng)
+            if score < bestScore {
+                bestScore = score
+                bestMove = move
+            }
+        }
+        return bestMove
     }
 }

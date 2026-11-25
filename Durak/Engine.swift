@@ -2,9 +2,9 @@ import Foundation
 
 enum Move: Equatable, Sendable {
     case attack(Card)
-    case defend(Int, Card)   // index of the attack on the table
-    case take                // defender takes the cards
-    case pass                // attacker ends the round ("бито" / let the defender take)
+    case defend(Int, Card)
+    case take
+    case pass
 }
 
 struct Pair: Sendable {
@@ -14,18 +14,19 @@ struct Pair: Sendable {
 
 struct GameState: Sendable {
     var hands: [DynamicArray<Card>]
-    var deck: DynamicArray<Card>          // deck[0] = face-up trump card, drawn last
+    var deck: DynamicArray<Card>
     var trump: Suit
     var table = DynamicArray<Pair>()
     var tableRanks = HashTable()
     var discard = Stack<Card>()
-    var order: CircularQueue<Int>         // front = attacker, next = defender
+    var order: CircularQueue<Int>
     var defenderTaking = false
     var roundLimit = 6
     var over = false
     var durak: Int? = nil
 
     init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>) {
+        precondition((2...4).contains(hands.count), "Durak supports 2–4 players")
         self.hands = hands
         self.deck = deck
         self.trump = trump
@@ -54,32 +55,38 @@ struct GameState: Sendable {
         return undefendedCount > 0 ? defender : attacker
     }
 
-    func beats(_ c: Card, _ a: Card) -> Bool {
-        if c.suit == a.suit { return c.rank > a.rank }
-        return c.suit == trump && a.suit != trump
+    func beats(_ card: Card, _ attack: Card) -> Bool {
+        if card.suit == attack.suit { return card.rank > attack.rank }
+        return card.suit == trump && attack.suit != trump
     }
 
-    /// Sort key 0...35: non-trump suits first, trumps last, then by rank
-    func sortKey(_ c: Card) -> Int {
-        let g = c.suit == trump ? 3 : (c.suit.rawValue < trump.rawValue ? c.suit.rawValue : c.suit.rawValue - 1)
-        return g * 9 + (c.rank - 6)
+    /// Sort key 0...35: non-trump suits first, trump suit last, ranks ascending.
+    func sortKey(_ card: Card) -> Int {
+        let group = card.suit == trump ? 3 : (card.suit.rawValue < trump.rawValue ? card.suit.rawValue : card.suit.rawValue - 1)
+        return group * 9 + (card.rank - 6)
     }
 
     func legalMoves() -> [Move] {
-        if over { return [] }
+        guard !over, order.count >= 2 else { return [] }
         var moves = [Move]()
         let a = attacker, d = defender
+
         if actor == d {
-            let idx = firstUndefended
-            let atk = table[idx].attack
-            for c in hands[d] where beats(c, atk) { moves.append(.defend(idx, c)) }
+            let index = firstUndefended
+            guard index >= 0 else { return [] }
+            let attack = table[index].attack
+            for card in hands[d] where beats(card, attack) {
+                moves.append(.defend(index, card))
+            }
             moves.append(.take)
         } else {
             if table.count == 0 {
-                for c in hands[a] { moves.append(.attack(c)) }
+                for card in hands[a] { moves.append(.attack(card)) }
             } else {
                 if table.count < roundLimit {
-                    for c in hands[a] where tableRanks.contains(c.rank) { moves.append(.attack(c)) }
+                    for card in hands[a] where tableRanks.contains(card.rank) {
+                        moves.append(.attack(card))
+                    }
                 }
                 moves.append(.pass)
             }
@@ -87,23 +94,24 @@ struct GameState: Sendable {
         return moves
     }
 
-    private mutating func removeFromHand(_ p: Int, _ c: Card) {
-        for i in 0..<hands[p].count where hands[p][i] == c {
-            hands[p].remove(at: i)
+    private mutating func removeFromHand(_ player: Int, _ card: Card) {
+        for i in 0..<hands[player].count where hands[player][i] == card {
+            hands[player].remove(at: i)
             return
         }
     }
 
-    mutating func apply(_ m: Move) {
-        switch m {
-        case .attack(let c):
-            removeFromHand(attacker, c)
-            table.append(Pair(attack: c, defense: nil))
-            tableRanks.increment(c.rank)
-        case .defend(let idx, let c):
-            removeFromHand(defender, c)
-            table[idx].defense = c
-            tableRanks.increment(c.rank)
+    mutating func apply(_ move: Move) {
+        guard !over, legalMoves().contains(move) else { return }
+        switch move {
+        case .attack(let card):
+            removeFromHand(attacker, card)
+            table.append(Pair(attack: card, defense: nil))
+            tableRanks.increment(card.rank)
+        case .defend(let index, let card):
+            removeFromHand(defender, card)
+            table[index].defense = card
+            tableRanks.increment(card.rank)
         case .take:
             defenderTaking = true
         case .pass:
@@ -113,36 +121,50 @@ struct GameState: Sendable {
 
     private mutating func finishRound() {
         let defended = !defenderTaking
-        let a = attacker, d = defender
+        let oldAttacker = attacker
+        let oldDefender = defender
+
         for i in 0..<table.count {
-            let p = table[i]
+            let pair = table[i]
             if defended {
-                discard.push(p.attack)
-                if let df = p.defense { discard.push(df) }
+                discard.push(pair.attack)
+                if let defense = pair.defense { discard.push(defense) }
             } else {
-                hands[d].append(p.attack)
-                if let df = p.defense { hands[d].append(df) }
+                hands[oldDefender].append(pair.attack)
+                if let defense = pair.defense { hands[oldDefender].append(defense) }
             }
         }
+
         table.removeAll()
         tableRanks = HashTable()
         defenderTaking = false
 
-        // draw: attacker first, defender last
-        var drawOrder = [a]
-        for i in stride(from: 2, to: order.count, by: 1) { drawOrder.append(order[i]) }
-        drawOrder.append(d)
-        for p in drawOrder {
-            while hands[p].count < 6 && !deck.isEmpty {
-                hands[p].append(deck.removeLast())
+        // The attacker draws first; the defender draws last.
+        var drawOrder = [oldAttacker]
+        if order.count > 2 {
+            for i in 2..<order.count { drawOrder.append(order[i]) }
+        }
+        drawOrder.append(oldDefender)
+
+        for player in drawOrder {
+            while hands[player].count < 6 && !deck.isEmpty {
+                hands[player].append(deck.removeLast())
             }
         }
 
+        // If defended, defender attacks next. If cards were taken, the next
+        // player after the defender attacks.
         order.rotate(by: defended ? 1 : 2)
 
         if deck.isEmpty {
-            for p in 0..<playerCount where hands[p].isEmpty && order.contains(p) {
-                order.remove(p)
+            let activePlayers = (0..<playerCount).filter { !hands[$0].isEmpty }
+            for player in 0..<playerCount where hands[player].isEmpty {
+                order.remove(player)
+            }
+            if activePlayers.count <= 1 {
+                over = true
+                durak = activePlayers.first
+                return
             }
         }
 
@@ -150,31 +172,39 @@ struct GameState: Sendable {
             over = true
             durak = order.count == 1 ? order[0] : nil
         } else {
-            roundLimit = min(6, hands[defender].count)
+            roundLimit = min(6, hands[order[1]].count)
         }
     }
 
-    static func newGame(players n: Int) -> GameState {
+    static func newGame(players: Int) -> GameState {
         var rng = SystemRandomNumberGenerator()
+        return newGame(players: players, using: &rng)
+    }
+
+    static func newGame<G: RandomNumberGenerator>(players n: Int, using rng: inout G) -> GameState {
+        precondition((2...4).contains(n), "Durak supports 2–4 players")
         var deck = DynamicArray<Card>()
         for id in 0..<36 { deck.append(Card(id: id)) }
         Sorts.fisherYates(&deck, using: &rng)
+
         let trump = deck[0].suit
         var hands = [DynamicArray<Card>](repeating: DynamicArray<Card>(), count: n)
         for _ in 0..<6 {
-            for p in 0..<n { hands[p].append(deck.removeLast()) }
+            for player in 0..<n { hands[player].append(deck.removeLast()) }
         }
+
         var first = -1
-        var best = 99
-        for p in 0..<n {
-            for c in hands[p] where c.suit == trump && c.rank < best {
-                best = c.rank
-                first = p
+        var lowestTrump = 99
+        for player in 0..<n {
+            for card in hands[player] where card.suit == trump && card.rank < lowestTrump {
+                lowestTrump = card.rank
+                first = player
             }
         }
         if first < 0 { first = Int.random(in: 0..<n, using: &rng) }
+
         var order = CircularQueue<Int>(capacity: n)
-        for k in 0..<n { order.enqueue((first + k) % n) }
+        for offset in 0..<n { order.enqueue((first + offset) % n) }
         return GameState(hands: hands, deck: deck, trump: trump, order: order)
     }
 }

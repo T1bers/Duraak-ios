@@ -1,10 +1,20 @@
-name: Build unsigned IPA
+name: Build unsigned IPA and test
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run core tests and 10,000-game simulation
+        run: swift test
+
   build:
+    needs: test
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
