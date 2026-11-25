@@ -25,6 +25,9 @@ struct GameState: Sendable {
     var moveCount = 0
     var over = false
     var durak: Int? = nil
+    // A hidden illegal throw-in can be challenged by the human player.
+    var cheatingPlayer: Int? = nil
+    var cheatingTableIndex: Int? = nil
 
     init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>) {
         precondition((2...4).contains(hands.count), "Durak supports 2–4 players")
@@ -95,6 +98,43 @@ struct GameState: Sendable {
         return moves
     }
 
+    /// A bot may secretly throw in a card whose rank is not on the table.
+    /// This is deliberately separate from legalMoves(), so fair-play bots and
+    /// the human player can never use this path.
+    mutating func playCheat(_ card: Card, by player: Int) -> Bool {
+        guard !over, player > 0, player < playerCount, actor == player,
+              table.count > 0, table.count < roundLimit,
+              !tableRanks.contains(card.rank) else { return false }
+        var found = false
+        for held in hands[player] where held == card { found = true; break }
+        guard found else { return false }
+        removeFromHand(player, card)
+        table.append(Pair(attack: card, defense: nil))
+        tableRanks.increment(card.rank)
+        cheatingPlayer = player
+        cheatingTableIndex = table.count - 1
+        moveCount += 1
+        return true
+    }
+
+    /// The player calls out the bot's suspicious card. The card is returned
+    /// to the bot and the invalid throw-in is removed before play continues.
+    mutating func challengeCheat() -> Bool {
+        guard let player = cheatingPlayer, let index = cheatingTableIndex,
+              index < table.count, table[index].defense == nil else { return false }
+        let card = table[index].attack
+        table.remove(at: index)
+        hands[player].append(card)
+        tableRanks = HashTable()
+        for pair in table {
+            tableRanks.increment(pair.attack.rank)
+            if let defense = pair.defense { tableRanks.increment(defense.rank) }
+        }
+        cheatingPlayer = nil
+        cheatingTableIndex = nil
+        return true
+    }
+
     private mutating func removeFromHand(_ player: Int, _ card: Card) {
         for i in 0..<hands[player].count where hands[player][i] == card {
             hands[player].remove(at: i)
@@ -144,6 +184,8 @@ struct GameState: Sendable {
 
         table.removeAll()
         tableRanks = HashTable()
+        cheatingPlayer = nil
+        cheatingTableIndex = nil
         defenderTaking = false
 
         // The attacker draws first; the defender draws last.
