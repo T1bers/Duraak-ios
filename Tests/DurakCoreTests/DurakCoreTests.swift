@@ -14,8 +14,6 @@ final class DurakCoreTests: XCTestCase {
     }
 
     func testTenThousandGamesPreserveAllCards() {
-        var finishedGames = 0
-        var cappedDraws = 0
         for game in 0..<10_000 {
             var rng = FastRNG(seed: UInt64(game + 1))
             var state = GameState.newGame(players: 2 + game % 3, using: &rng)
@@ -29,7 +27,7 @@ final class DurakCoreTests: XCTestCase {
                 XCTAssertEqual(ids.count, 36, "Card count changed in game \(game)")
                 XCTAssertEqual(Set(ids).count, 36, "Duplicate/missing card in game \(game)")
             }
-            if state.over { finishedGames += 1 } else { cappedDraws += 1 }
+            XCTAssertTrue(state.over, "Game \\(game) did not finish or reach the draw limit")
         }
         XCTAssertEqual(finishedGames + cappedDraws, 10_000)
         print("10,000-game simulation: \(finishedGames) finished; \(cappedDraws) reached the 1,000-move draw cutoff")
