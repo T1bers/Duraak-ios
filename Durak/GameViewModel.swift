@@ -12,15 +12,17 @@ final class GameVM: ObservableObject {
     let budget: Double
     let cheaterMode: Bool
     let playerTimeout: Int
+    let deckSize: Int
     private var token = 0
     private var forceFairNextBotMove = false
 
-    init(players: Int, budget: Double, cheaterMode: Bool = false, playerTimeout: Int = 30) {
+    init(players: Int, budget: Double, cheaterMode: Bool = false, playerTimeout: Int = 30, deckSize: Int = 36) {
         self.playerCount = players
         self.budget = budget
         self.cheaterMode = cheaterMode
         self.playerTimeout = playerTimeout
-        self.state = GameState.newGame(players: players)
+        self.deckSize = deckSize
+        self.state = GameState.newGame(players: players, deckSize: deckSize)
         schedule()
     }
 
@@ -69,7 +71,7 @@ final class GameVM: ObservableObject {
         token += 1
         thinking = false
         history.removeAll()
-        state = GameState.newGame(players: playerCount)
+        state = GameState.newGame(players: playerCount, deckSize: deckSize)
         message = "New game"
         schedule()
     }
