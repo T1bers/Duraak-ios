@@ -1,5 +1,7 @@
 import Foundation
 
+enum ThrowInScope: Sendable { case neighbors, all }
+
 enum Move: Equatable, Sendable {
     case attack(Card)
     case defend(Int, Card)
@@ -29,11 +31,14 @@ struct GameState: Sendable {
     var deckSize: Int = 36
     var transferEnabled: Bool = false
     var drawOnMoveLimit: Bool = true
+    var throwInScope: ThrowInScope = .neighbors
+    var throwInPassed: Set<Int> = []
+    var throwInCursor: Int? = nil
     // A hidden illegal throw-in can be challenged by the human player.
     var cheatingPlayer: Int? = nil
     var cheatingTableIndex: Int? = nil
 
-    init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true) {
+    init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors) {
         precondition((2...4).contains(hands.count), "Durak supports 2–4 players")
         self.hands = hands
         self.deck = deck
@@ -42,6 +47,8 @@ struct GameState: Sendable {
         self.deckSize = deckSize
         self.transferEnabled = transferEnabled
         self.drawOnMoveLimit = drawOnMoveLimit
+        self.throwInScope = throwInScope
+        self.throwInCursor = order[0]
         self.roundLimit = min(6, hands[order[1]].count)
     }
 
@@ -62,8 +69,29 @@ struct GameState: Sendable {
 
     var actor: Int {
         if over { return -1 }
-        if defenderTaking { return attacker }
-        return undefendedCount > 0 ? defender : attacker
+        if !defenderTaking && undefendedCount > 0 { return defender }
+        if table.count > 0 { return throwInCursor ?? attacker }
+        return attacker
+    }
+
+    private var eligibleThrowInPlayers: [Int] {
+        guard order.count >= 2 else { return [] }
+        if throwInScope == .all {
+            return (0..<order.count).map { order[$0] }.filter { $0 != defender }
+        }
+        let next = order.count > 2 ? order[2] : attacker
+        return Array(Set([attacker, next])).filter { $0 != defender }
+    }
+
+    private func nextThrowIn(after player: Int, excluding passed: Set<Int>) -> Int? {
+        guard order.count > 0 else { return nil }
+        var position = 0
+        for i in 0..<order.count where order[i] == player { position = i; break }
+        for offset in 1...order.count {
+            let candidate = order[(position + offset) % order.count]
+            if eligibleThrowInPlayers.contains(candidate) && !passed.contains(candidate) { return candidate }
+        }
+        return nil
     }
 
     func beats(_ card: Card, _ attack: Card) -> Bool {
@@ -80,77 +108,39 @@ struct GameState: Sendable {
     func legalMoves() -> [Move] {
         guard !over, order.count >= 2 else { return [] }
         var moves = [Move]()
-        let a = attacker, d = defender
+        let current = actor
 
-        if actor == d {
+        if !defenderTaking && current == defender && undefendedCount > 0 {
             let index = firstUndefended
             guard index >= 0 else { return [] }
             let attack = table[index].attack
-            for card in hands[d] where beats(card, attack) {
+            for card in hands[current] where beats(card, attack) {
                 moves.append(.defend(index, card))
             }
-            // Transfer Durak: the defender may pass the attack onward by
-            // adding a card of the same rank. Keep this disabled in 2-player games.
+            // Transfer Durak: pass the attack to the next player with a same-rank card.
             if transferEnabled, order.count > 2, table.count < roundLimit {
                 let nextDefender = order[2]
-                let transferRank = table[index].attack.rank
+                let transferRank = attack.rank
                 if hands[nextDefender].count >= table.count + 1 {
-                    for card in hands[d] where card.rank == transferRank {
+                    for card in hands[current] where card.rank == transferRank {
                         moves.append(.transfer(card))
                     }
                 }
             }
             moves.append(.take)
-        } else {
-            if table.count == 0 {
-                for card in hands[a] { moves.append(.attack(card)) }
-            } else {
-                if table.count < roundLimit {
-                    for card in hands[a] where tableRanks.contains(card.rank) {
-                        moves.append(.attack(card))
-                    }
-                }
-                moves.append(.pass)
+        } else if table.count == 0 {
+            if current == attacker {
+                for card in hands[current] { moves.append(.attack(card)) }
             }
+        } else {
+            if eligibleThrowInPlayers.contains(current), table.count < roundLimit {
+                for card in hands[current] where tableRanks.contains(card.rank) {
+                    moves.append(.attack(card))
+                }
+            }
+            moves.append(.pass)
         }
         return moves
-    }
-
-    /// A bot may secretly throw in a card whose rank is not on the table.
-    /// This is deliberately separate from legalMoves(), so fair-play bots and
-    /// the human player can never use this path.
-    mutating func playCheat(_ card: Card, by player: Int) -> Bool {
-        guard !over, player > 0, player < playerCount, actor == player,
-              table.count > 0, table.count < roundLimit,
-              !tableRanks.contains(card.rank) else { return false }
-        var found = false
-        for held in hands[player] where held == card { found = true; break }
-        guard found else { return false }
-        removeFromHand(player, card)
-        table.append(Pair(attack: card, defense: nil))
-        tableRanks.increment(card.rank)
-        cheatingPlayer = player
-        cheatingTableIndex = table.count - 1
-        moveCount += 1
-        return true
-    }
-
-    /// The player calls out the bot's suspicious card. The card is returned
-    /// to the bot and the invalid throw-in is removed before play continues.
-    mutating func challengeCheat() -> Bool {
-        guard let player = cheatingPlayer, let index = cheatingTableIndex,
-              index < table.count, table[index].defense == nil else { return false }
-        let card = table[index].attack
-        table.remove(at: index)
-        hands[player].append(card)
-        tableRanks = HashTable()
-        for pair in table {
-            tableRanks.increment(pair.attack.rank)
-            if let defense = pair.defense { tableRanks.increment(defense.rank) }
-        }
-        cheatingPlayer = nil
-        cheatingTableIndex = nil
-        return true
     }
 
     private mutating func removeFromHand(_ player: Int, _ card: Card) {
@@ -165,9 +155,12 @@ struct GameState: Sendable {
         moveCount += 1
         switch move {
         case .attack(let card):
-            removeFromHand(attacker, card)
+            let playingPlayer = actor
+            removeFromHand(playingPlayer, card)
             table.append(Pair(attack: card, defense: nil))
             tableRanks.increment(card.rank)
+            throwInPassed.removeAll()
+            throwInCursor = nextThrowIn(after: playingPlayer, excluding: throwInPassed)
         case .defend(let index, let card):
             removeFromHand(defender, card)
             table[index].defense = card
@@ -179,11 +172,23 @@ struct GameState: Sendable {
             tableRanks.increment(card.rank)
             order.rotate(by: 1)
             roundLimit = min(6, hands[order[1]].count)
+            throwInPassed.removeAll()
+            throwInCursor = attacker
             defenderTaking = false
         case .take:
             defenderTaking = true
         case .pass:
-            finishRound()
+            if defenderTaking {
+                finishRound()
+            } else {
+                let passingPlayer = actor
+                throwInPassed.insert(passingPlayer)
+                if let next = nextThrowIn(after: passingPlayer, excluding: throwInPassed) {
+                    throwInCursor = next
+                } else {
+                    finishRound()
+                }
+            }
         }
         // A hard cap turns pathological card-transfer cycles into a draw.
         if moveCount >= 1_000 && !over {
@@ -238,6 +243,8 @@ struct GameState: Sendable {
         // If defended, defender attacks next. If cards were taken, the next
         // player after the defender attacks.
         order.rotate(by: defended ? 1 : 2)
+        throwInPassed.removeAll()
+        throwInCursor = attacker
 
         if deck.isEmpty {
             let activePlayers = (0..<playerCount).filter { !hands[$0].isEmpty }
@@ -259,12 +266,12 @@ struct GameState: Sendable {
         }
     }
 
-    static func newGame(players: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true) -> GameState {
+    static func newGame(players: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors) -> GameState {
         var rng = SystemRandomNumberGenerator()
-        return newGame(players: players, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, using: &rng)
+        return newGame(players: players, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope, using: &rng)
     }
 
-    static func newGame<G: RandomNumberGenerator>(players n: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, using rng: inout G) -> GameState {
+    static func newGame<G: RandomNumberGenerator>(players n: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors, using rng: inout G) -> GameState {
         precondition((2...4).contains(n), "Durak supports 2–4 players")
         precondition(deckSize == 24 || deckSize == 36, "Deck size must be 24 or 36")
         var deck = DynamicArray<Card>()
@@ -289,6 +296,6 @@ struct GameState: Sendable {
 
         var order = CircularQueue<Int>(capacity: n)
         for offset in 0..<n { order.enqueue((first + offset) % n) }
-        return GameState(hands: hands, deck: deck, trump: trump, order: order, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit)
+        return GameState(hands: hands, deck: deck, trump: trump, order: order, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope)
     }
 }
