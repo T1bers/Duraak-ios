@@ -27,17 +27,19 @@ struct GameState: Sendable {
     var over = false
     var durak: Int? = nil
     var deckSize: Int = 36
+    var transferEnabled: Bool = false
     // A hidden illegal throw-in can be challenged by the human player.
     var cheatingPlayer: Int? = nil
     var cheatingTableIndex: Int? = nil
 
-    init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>, deckSize: Int = 36) {
+    init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>, deckSize: Int = 36, transferEnabled: Bool = false) {
         precondition((2...4).contains(hands.count), "Durak supports 2–4 players")
         self.hands = hands
         self.deck = deck
         self.trump = trump
         self.order = order
         self.deckSize = deckSize
+        self.transferEnabled = transferEnabled
         self.roundLimit = min(6, hands[order[1]].count)
     }
 
@@ -87,7 +89,7 @@ struct GameState: Sendable {
             }
             // Transfer Durak: the defender may pass the attack onward by
             // adding a card of the same rank. Keep this disabled in 2-player games.
-            if order.count > 2, table.count < roundLimit {
+            if transferEnabled, order.count > 2, table.count < roundLimit {
                 let nextDefender = order[2]
                 let transferRank = table[index].attack.rank
                 if hands[nextDefender].count >= table.count + 1 {
@@ -247,12 +249,12 @@ struct GameState: Sendable {
         }
     }
 
-    static func newGame(players: Int, deckSize: Int = 36) -> GameState {
+    static func newGame(players: Int, deckSize: Int = 36, transferEnabled: Bool = false) -> GameState {
         var rng = SystemRandomNumberGenerator()
-        return newGame(players: players, deckSize: deckSize, using: &rng)
+        return newGame(players: players, deckSize: deckSize, transferEnabled: transferEnabled, using: &rng)
     }
 
-    static func newGame<G: RandomNumberGenerator>(players n: Int, deckSize: Int = 36, using rng: inout G) -> GameState {
+    static func newGame<G: RandomNumberGenerator>(players n: Int, deckSize: Int = 36, transferEnabled: Bool = false, using rng: inout G) -> GameState {
         precondition((2...4).contains(n), "Durak supports 2–4 players")
         precondition(deckSize == 24 || deckSize == 36, "Deck size must be 24 or 36")
         var deck = DynamicArray<Card>()
@@ -277,6 +279,6 @@ struct GameState: Sendable {
 
         var order = CircularQueue<Int>(capacity: n)
         for offset in 0..<n { order.enqueue((first + offset) % n) }
-        return GameState(hands: hands, deck: deck, trump: trump, order: order, deckSize: deckSize)
+        return GameState(hands: hands, deck: deck, trump: trump, order: order, deckSize: deckSize, transferEnabled: transferEnabled)
     }
 }
