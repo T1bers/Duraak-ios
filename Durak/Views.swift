@@ -169,7 +169,7 @@ struct InfoView: View {
                     rule("3. Defend or take", "Cover every attacking card to defend successfully. If you cannot or do not want to defend, choose Take and collect all cards on the table.")
                     rule("4. Finish the round", "When every attack is covered, the attacker chooses Done. If the defender takes the cards, the next player after the defender starts the next attack.")
                     rule("5. Draw cards", "After a round, players draw back up to six cards while the deck lasts. The attacker draws first and the defender draws last.")
-                    rule("6. Win or draw", "When the deck is empty, players who get rid of all their cards leave the game. The last player holding cards loses. To prevent endless card-transfer loops, a game that reaches 1,000 moves is declared a draw.")
+                    rule("6. Win or draw", "When the deck is empty, players who get rid of all their cards leave the game. The last player holding cards loses. In Draw on stalemate mode, a game that reaches 1,000 moves ends in a draw; Classic mode assigns the loss to the player holding the most cards.")
                     Divider().overlay(Color.white.opacity(0.25))
                     Text("Developers").font(.title2.bold())
                     Text("Alan & Shoxrux").font(.title3).foregroundColor(.yellow)
