@@ -32,6 +32,45 @@ final class DurakCoreTests: XCTestCase {
     }
 
 
+
+    func testCheaterCardCanBeCalledOutAndReturnedToBot() {
+        var queue = CircularQueue<Int>(capacity: 3)
+        queue.enqueue(1); queue.enqueue(0); queue.enqueue(2)
+        let hands = [
+            DynamicArray<Card>([Card(id: 11), Card(id: 20)]),
+            DynamicArray<Card>([Card(id: 9), Card(id: 12)]),
+            DynamicArray<Card>([Card(id: 18), Card(id: 19)])
+        ]
+        var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts, order: queue)
+        state.apply(.attack(Card(id: 9)))
+        state.apply(.defend(0, Card(id: 11)))
+        XCTAssertTrue(state.playCheat(Card(id: 12), by: 1))
+        XCTAssertEqual(state.cheatingPlayer, 1)
+        XCTAssertTrue(state.challengeCheat())
+        XCTAssertNil(state.cheatingPlayer)
+        XCTAssertEqual(state.table.count, 1)
+        XCTAssertTrue(state.hands[1].toArray().contains(Card(id: 12)))
+    }
+
+    func testTransferMovesAttackToNextDefender() {
+        var queue = CircularQueue<Int>(capacity: 3)
+        queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
+        let hands = [
+            DynamicArray<Card>([Card(id: 0), Card(id: 3)]),
+            DynamicArray<Card>([Card(id: 9), Card(id: 10)]),
+            DynamicArray<Card>([Card(id: 18), Card(id: 19)])
+        ]
+        var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts,
+                              order: queue, transferEnabled: true)
+        state.apply(.attack(Card(id: 0)))
+        XCTAssertTrue(state.legalMoves().contains(.transfer(Card(id: 9))))
+        state.apply(.transfer(Card(id: 9)))
+        XCTAssertEqual(state.attacker, 1)
+        XCTAssertEqual(state.defender, 2)
+        XCTAssertEqual(state.actor, 2)
+        XCTAssertEqual(state.table.count, 2)
+    }
+
     func testTwentyFourCardDeckUsesNineThroughAce() {
         var rng = FastRNG(seed: 2400)
         let state = GameState.newGame(players: 3, deckSize: 24, using: &rng)
