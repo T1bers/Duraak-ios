@@ -22,6 +22,7 @@ struct GameState: Sendable {
     var order: CircularQueue<Int>
     var defenderTaking = false
     var roundLimit = 6
+    var moveCount = 0
     var over = false
     var durak: Int? = nil
 
@@ -103,6 +104,7 @@ struct GameState: Sendable {
 
     mutating func apply(_ move: Move) {
         guard !over, legalMoves().contains(move) else { return }
+        moveCount += 1
         switch move {
         case .attack(let card):
             removeFromHand(attacker, card)
@@ -116,6 +118,11 @@ struct GameState: Sendable {
             defenderTaking = true
         case .pass:
             finishRound()
+        }
+        // A hard cap turns pathological card-transfer cycles into a draw.
+        if moveCount >= 1_000 && !over {
+            over = true
+            durak = nil
         }
     }
 
