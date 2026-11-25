@@ -15,10 +15,11 @@ final class GameVM: ObservableObject {
     let deckSize: Int
     let transferEnabled: Bool
     let drawOnMoveLimit: Bool
+    let throwInScope: ThrowInScope
     private var token = 0
     private var forceFairNextBotMove = false
 
-    init(players: Int, budget: Double, cheaterMode: Bool = false, playerTimeout: Int = 30, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true) {
+    init(players: Int, budget: Double, cheaterMode: Bool = false, playerTimeout: Int = 30, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors) {
         self.playerCount = players
         self.budget = budget
         self.cheaterMode = cheaterMode
@@ -26,7 +27,8 @@ final class GameVM: ObservableObject {
         self.deckSize = deckSize
         self.transferEnabled = transferEnabled
         self.drawOnMoveLimit = drawOnMoveLimit
-        self.state = GameState.newGame(players: players, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit)
+        self.throwInScope = throwInScope
+        self.state = GameState.newGame(players: players, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope)
         schedule()
     }
 
@@ -76,7 +78,7 @@ final class GameVM: ObservableObject {
         token += 1
         thinking = false
         history.removeAll()
-        state = GameState.newGame(players: playerCount, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit)
+        state = GameState.newGame(players: playerCount, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope)
         message = "New game"
         schedule()
     }
