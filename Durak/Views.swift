@@ -423,6 +423,27 @@ private struct DraggableHandCard: View {
             .animation(.interactiveSpring(response: 0.16, dampingFraction: 0.72), value: isFloating)
     }
 }
+private struct TransferDropTarget: View {
+    var body: some View {
+        VStack(spacing: 5) {
+            Image(systemName: "arrow.turn.up.right")
+                .font(.system(size: 21, weight: .bold))
+            Text("TRANSFER")
+                .font(.system(size: 8, weight: .black))
+                .tracking(0.4)
+        }
+        .foregroundColor(Color(red: 0.12, green: 0.10, blue: 0.08))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 11)
+                .fill(LinearGradient(colors: [Color(red: 1, green: 0.88, blue: 0.55), Color(red: 0.88, green: 0.57, blue: 0.17)], startPoint: .top, endPoint: .bottom))
+        )
+        .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color.white.opacity(0.8), lineWidth: 1.5))
+        .shadow(color: Palette.gold.opacity(0.45), radius: 8, y: 3)
+        .allowsHitTesting(false)
+    }
+}
+
 // MARK: - Game view
 struct GameView: View {
     @StateObject private var vm: GameVM
@@ -555,6 +576,13 @@ struct GameView: View {
                     .contentShape(Rectangle())
                     .onTapGesture { vm.challengeCheat(at: i) }
                     .frame(width: 84, height: 104, alignment: .topLeading)
+                    .overlay(alignment: .trailing) {
+                        if i == vm.state.firstUndefended && shouldShowTransferTarget {
+                            TransferDropTarget()
+                                .frame(width: 76, height: 104)
+                                .offset(x: 78)
+                        }
+                    }
                     .background(GeometryReader { pairProxy in
                         Color.clear
                             .onAppear { updatePairDropFrames(index: i, frame: pairProxy.frame(in: .named("gameBoard"))) }
@@ -567,6 +595,14 @@ struct GameView: View {
                     })
                 }
             }
+        }
+    }
+
+    private var shouldShowTransferTarget: Bool {
+        guard vm.state.actor == 0, vm.state.transferEnabled else { return false }
+        return vm.state.legalMoves().contains {
+            if case .transfer = $0 { return true }
+            return false
         }
     }
 
@@ -688,7 +724,9 @@ struct GameView: View {
                 vm.humanTransfer(selected)
             } else if defendDropFrame.contains(point) {
                 vm.humanDefend(selected)
-            } else if tableDropFrame.contains(point) {
+            } else if point.y < handFrame.minY {
+                // Any release above the lower hand panel counts as dropping the
+                // lifted card onto the table; players do not need to hit its center.
                 vm.humanPlay(selected)
             }
         }
