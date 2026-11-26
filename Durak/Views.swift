@@ -411,34 +411,26 @@ struct CardView: View {
 private struct DraggableHandCard: View {
     let card: Card
     let width: CGFloat
-    let dropFrame: CGRect
-    let onPlay: () -> Void
-    @GestureState private var dragOffset: CGSize = .zero
-    @State private var isDragging = false
+    let isFloating: Bool
+    let onDragChanged: (CGPoint) -> Void
+    let onDragEnded: (CGPoint) -> Void
 
     var body: some View {
         CardView(card: card, width: width)
-            .offset(dragOffset)
-            .scaleEffect(isDragging ? 1.06 : 1.0)
-            .zIndex(isDragging ? 10 : 0)
+            .opacity(isFloating ? 0.12 : 1)
             .gesture(
-                DragGesture(minimumDistance: 3, coordinateSpace: .global)
-                    .updating($dragOffset) { value, state, _ in
-                        state = value.translation
-                    }
-                    .onChanged { _ in isDragging = true }
-                    .onEnded { value in
-                        isDragging = false
-                        if dropFrame.contains(value.location) { onPlay() }
-                    }
+                DragGesture(minimumDistance: 3, coordinateSpace: .named("gameBoard"))
+                    .onChanged { value in onDragChanged(value.location) }
+                    .onEnded { value in onDragEnded(value.location) }
             )
-            .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isDragging)
     }
 }
 // MARK: - Game view
 struct GameView: View {
     @StateObject private var vm: GameVM
     @State private var tableDropFrame: CGRect = .zero
+    @State private var draggedCard: Card? = nil
+    @State private var dragPoint: CGPoint = .zero
     var onExit: () -> Void
 
     init(players: Int, budget: Double, cheaterMode: Bool, playerTimeout: Int, deckSize: Int, transferEnabled: Bool, drawOnMoveLimit: Bool, throwInScope: ThrowInScope, onExit: @escaping () -> Void) {
@@ -456,7 +448,9 @@ struct GameView: View {
                 tableArea
                     .background(GeometryReader { proxy in
                         Color.clear.onAppear {
-                            tableDropFrame = proxy.frame(in: .global).insetBy(dx: -55, dy: -75)
+                            tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: -55, dy: -75)
+                        }.onChange(of: proxy.size) { _ in
+                            tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: -55, dy: -75)
                         }
                     })
                 Spacer(minLength: 0)
@@ -470,8 +464,17 @@ struct GameView: View {
                 handView
             }
             .padding(.horizontal, 8)
+            if let card = draggedCard {
+                CardView(card: card, width: 68)
+                    .scaleEffect(1.08)
+                    .shadow(color: .black.opacity(0.35), radius: 14, y: 8)
+                    .position(dragPoint)
+                    .allowsHitTesting(false)
+                    .zIndex(1000)
+            }
             if vm.state.over { overlay }
         }
+        .coordinateSpace(name: "gameBoard")
     }
 
     private var topBar: some View {
@@ -581,7 +584,14 @@ struct GameView: View {
                 return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: -22) {
                 ForEach(cards, id: \.id) { c in
-                    DraggableHandCard(card: c, width: 68, dropFrame: tableDropFrame) { vm.humanPlay(c) }
+                    DraggableHandCard(card: c, width: 68, isFloating: draggedCard == c, onDragChanged: { point in
+                        if draggedCard == nil { draggedCard = c }
+                        dragPoint = point
+                    }, onDragEnded: { point in
+                        dragPoint = point
+                        if tableDropFrame.contains(point) { vm.humanPlay(c) }
+                        draggedCard = nil
+                    })
                 }
             }.padding(.horizontal, 26).padding(.top, 17).padding(.bottom, 7)
         }
