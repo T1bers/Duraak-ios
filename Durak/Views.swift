@@ -48,7 +48,7 @@ struct MenuView: View {
             Table.background
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 22) {
-                    .overlay {
+                    Color.clear.frame(height: 145).overlay {
                         VStack(spacing: 2) {
                             ZStack {
                                 Image(systemName: "crown.fill")
@@ -74,7 +74,6 @@ struct MenuView: View {
                                 .foregroundColor(Palette.gold)
                         }
                     }
-                    .frame(height: 145)
 
                     VStack(alignment: .leading, spacing: 17) {
                         HStack {
