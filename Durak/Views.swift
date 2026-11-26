@@ -652,7 +652,9 @@ struct GameView: View {
 
     private func updatePairDropFrames(index: Int, frame: CGRect) {
         guard index == vm.state.firstUndefended else { return }
-        defendDropFrame = frame.insetBy(dx: -8, dy: -8)
+        // Keep defense targeting on the actual first undefended pair.
+        // A broad hitbox was swallowing drops intended as throw-ins.
+        defendDropFrame = frame
         // Match the hit area and visual cue to a normal table card.
         // Place the transfer marker directly beside the attack card,
         // aligned to the card's top edge (not below the pair).
@@ -867,18 +869,24 @@ struct GameView: View {
             if transferIsLegal && (transferDropFrame.contains(point) || releasedBesideAttack) {
                 destination = CGPoint(x: transferDropFrame.midX, y: transferDropFrame.midY)
                 play = { vm.humanTransfer(selected) }
+            } else if defendDropFrame.contains(point) && canDefend {
+                // A drop on the first still-unbeaten attack is a defense.
+                destination = CGPoint(x: defendDropFrame.midX, y: defendDropFrame.midY)
+                play = { vm.humanDefend(selected) }
+            } else if canThrowIn && tableDropFrame.contains(point) {
+                // A drop elsewhere on the table is an explicit throw-in.
+                // This bypasses humanPlay's defense-first preference when the
+                // same card could both beat the first attack and match a table rank.
+                destination = CGPoint(x: tableDropFrame.midX, y: tableDropFrame.midY)
+                play = { vm.humanThrowIn(selected) }
             } else if defendDropFrame.contains(point) {
                 destination = CGPoint(x: defendDropFrame.midX, y: defendDropFrame.midY)
-                // On the actual undefended attack card, prefer a legal defense.
-                // If the selected card cannot beat it but is a legal throw-in,
-                // send it through the throw-in path instead.
-                play = canDefend ? { vm.humanDefend(selected) } :
-                    (canThrowIn ? { vm.humanPlay(selected) } : { vm.humanDefend(selected) })
-            } else if canThrowIn && tableDropFrame.contains(point) {
-                // Throw-ins are allowed anywhere on the table, including at the
-                // start of a bot's defense turn—not only over the first attack.
+                play = { vm.humanDefend(selected) }
+            } else if canThrowIn && (hasMovedAboveHand || point.y < handFrame.minY + 18) {
+                // An upward release outside the precise defense target is a throw-in
+                // whenever the selected card legally matches a rank on the table.
                 destination = CGPoint(x: tableDropFrame.midX, y: tableDropFrame.midY)
-                play = { vm.humanPlay(selected) }
+                play = { vm.humanThrowIn(selected) }
             } else if hasMovedAboveHand || point.y < handFrame.minY + 18 {
                 // Register the upward release reliably in portrait layout.
                 destination = CGPoint(x: tableDropFrame.midX, y: tableDropFrame.midY)
