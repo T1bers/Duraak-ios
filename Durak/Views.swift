@@ -369,8 +369,12 @@ struct GameView: View {
                 Spacer(minLength: 0)
                 tableArea
                 Spacer(minLength: 0)
-                Text(vm.state.actor == 0 && !vm.state.over ? "Your turn · \(vm.remainingTime)s" : (vm.thinking ? "Bot is thinking…" : vm.message))
-                    .font(.subheadline).foregroundColor(.white.opacity(0.9)).lineLimit(1)
+                Text(vm.state.actor == 0 && !vm.state.over ? "YOUR TURN  ·  \(vm.remainingTime)s" : (vm.thinking ? "BOT IS THINKING…" : vm.message.uppercased()))
+                    .font(.system(size: 13, weight: .bold)).tracking(1)
+                    .foregroundColor(Palette.paleGold).lineLimit(1)
+                    .padding(.horizontal, 16).padding(.vertical, 8)
+                    .background(Glass.panel, in: Capsule())
+                    .overlay(Capsule().stroke(Palette.gold.opacity(0.32), lineWidth: 1))
                 actionButtons
                 handView
             }
@@ -381,13 +385,24 @@ struct GameView: View {
 
     private var topBar: some View {
         HStack {
-            Button("‹ Menu") { onExit() }.foregroundColor(.white)
+            Button { onExit() } label: {
+                Label("Menu", systemImage: "line.3.horizontal")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(Glass.panel, in: Capsule())
+                    .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
+            }
             Spacer()
-            Text("Trump: \(vm.state.trump.symbol)")
-                .font(.headline).foregroundColor(.white)
-                .padding(.horizontal, 12).padding(.vertical, 4)
-                .background(Capsule().fill(Color.black.opacity(0.3)))
-        }.padding(.top, 4)
+            HStack(spacing: 7) {
+                Text("TRUMP").font(.caption2.weight(.black)).tracking(1).foregroundColor(.white.opacity(0.65))
+                Text(vm.state.trump.symbol).font(.title2.bold())
+                    .foregroundColor(vm.state.trump.isRed ? .red : Palette.paleGold)
+            }
+            .padding(.horizontal, 15).padding(.vertical, 8)
+            .background(Glass.panel, in: Capsule())
+            .overlay(Capsule().stroke(Palette.gold.opacity(0.65), lineWidth: 1))
+        }.padding(.top, 7)
     }
 
     private var opponents: some View {
@@ -398,10 +413,10 @@ struct GameView: View {
                 let active = st.actor == p
                 VStack(spacing: 4) {
                     ZStack {
-                        Circle().fill(Color.black.opacity(0.35)).frame(width: 46, height: 46)
+                        Circle().fill(Glass.panel).frame(width: 48, height: 48)
                         Text(out ? "✓" : "🤖").font(.title2)
-                        Circle().stroke(active ? Color.yellow : Color.clear, lineWidth: 3).frame(width: 46, height: 46)
-                    }
+                        Circle().stroke(active ? Palette.gold : Color.white.opacity(0.18), lineWidth: active ? 2.5 : 1).frame(width: 48, height: 48)
+                    }.shadow(color: active ? Palette.gold.opacity(0.4) : .clear, radius: 9)
                     Text("AI \(p)\(st.over ? "" : (st.attacker == p ? " ⚔️" : (st.defender == p ? " 🛡️" : "")))")
                         .font(.caption.bold()).foregroundColor(.white)
                     HStack(spacing: -20) {
@@ -456,13 +471,15 @@ struct GameView: View {
             if moves.contains(.pass) {
                 Button { vm.humanPass() } label: { pill(vm.state.defenderTaking ? "Let take" : "Done", Color.yellow) }
             }
-        }.frame(height: 40)
+        }.frame(height: 46)
     }
 
     private func pill(_ t: String, _ c: Color) -> some View {
-        Text(t).font(.headline).foregroundColor(.black)
-            .padding(.horizontal, 18).padding(.vertical, 8)
+        Text(t.uppercased()).font(.system(size: 14, weight: .black)).tracking(0.5).foregroundColor(.black)
+            .padding(.horizontal, 19).padding(.vertical, 10)
             .background(Capsule().fill(c))
+            .overlay(Capsule().stroke(Color.white.opacity(0.45), lineWidth: 1))
+            .shadow(color: c.opacity(0.28), radius: 7, y: 3)
     }
 
     private var handView: some View {
@@ -473,11 +490,15 @@ struct GameView: View {
                 return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: -22) {
                 ForEach(cards, id: \.id) { c in
-                    CardView(card: c, width: 64)
+                    CardView(card: c, width: 68)
                         .onTapGesture { vm.humanPlay(c) }
                 }
-            }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 6)
-        }.frame(height: 130)
+            }.padding(.horizontal, 26).padding(.top, 17).padding(.bottom, 7)
+        }
+        .frame(height: 139)
+        .background(Glass.panel, in: RoundedRectangle(cornerRadius: 27))
+        .overlay(RoundedRectangle(cornerRadius: 27).stroke(Palette.gold.opacity(0.28), lineWidth: 1))
+        .shadow(color: Palette.gold.opacity(0.08), radius: 15)
     }
 
     private var overlay: some View {
