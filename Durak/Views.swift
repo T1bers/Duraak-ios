@@ -463,19 +463,26 @@ private struct DraggableHandCard: View {
 private struct TransferDropTarget: View {
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(LinearGradient(
-                    colors: [Color(red: 1, green: 0.91, blue: 0.64), Color(red: 0.88, green: 0.57, blue: 0.17)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.82), lineWidth: 1.4)
+            RoundedRectangle(cornerRadius: 9).fill(Color.clear)
+            RoundedRectangle(cornerRadius: 9).stroke(Palette.gold.opacity(0.98), lineWidth: 3)
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.white.opacity(0.78), style: StrokeStyle(lineWidth: 1.2, dash: [4, 3]))
+                .padding(5)
             Image(systemName: "arrow.left.arrow.right")
-                .font(.system(size: 16, weight: .black))
-                .foregroundColor(Color(red: 0.12, green: 0.10, blue: 0.08))
+                .font(.system(size: 29, weight: .black))
+                .foregroundColor(Palette.gold)
+                .shadow(color: .black.opacity(0.7), radius: 3, y: 1)
+            Text("TRANSFER")
+                .font(.system(size: 7, weight: .black, design: .rounded))
+                .tracking(0.7)
+                .foregroundColor(.white)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 3)
+                .background(Color.black.opacity(0.58), in: Capsule())
+                .offset(y: 27)
         }
-        .shadow(color: Palette.gold.opacity(0.42), radius: 7, y: 3)
+        .frame(width: 64, height: 104)
+        .shadow(color: Palette.gold.opacity(0.3), radius: 5, y: 2)
         .allowsHitTesting(false)
     }
 }
@@ -495,6 +502,7 @@ struct GameView: View {
     @State private var lastSelectionX: CGFloat = .zero
     @State private var selectionStartPoint: CGPoint = .zero
     @State private var dragPoint: CGPoint = .zero
+    @State private var hasMovedAboveHand = false
     @State private var flyingCard: Card? = nil
     @State private var flightPosition: CGPoint = .zero
     @State private var flightID = UUID()
@@ -653,10 +661,10 @@ struct GameView: View {
         guard index == vm.state.firstUndefended else { return }
         defendDropFrame = frame.insetBy(dx: -8, dy: -8)
         transferDropFrame = CGRect(
-            x: frame.maxX + 2,
-            y: frame.minY + 22,
-            width: 44,
-            height: 58
+            x: frame.maxX + 4,
+            y: frame.minY,
+            width: 64,
+            height: 104
         )
     }
 
@@ -678,8 +686,8 @@ struct GameView: View {
                     .overlay(alignment: .trailing) {
                         if i == vm.state.firstUndefended && shouldShowTransferTarget {
                             TransferDropTarget()
-                                .frame(width: 40, height: 54)
-                                .offset(x: 43)
+                                .frame(width: 64, height: 104)
+                                .offset(x: 66)
                         }
                     }
                     .background(GeometryReader { pairProxy in
@@ -747,6 +755,9 @@ struct GameView: View {
 
     private func handleHandDragChanged(_ point: CGPoint, cards: [Card], firstCenter: CGFloat, step: CGFloat) {
         guard !cards.isEmpty else { return }
+        if isSelectionLocked && point.y < handFrame.minY + 18 {
+            hasMovedAboveHand = true
+        }
         let handSelectionZone = handFrame.insetBy(dx: 0, dy: -24)
         if handSelectionZone.contains(point) {
             let localX = point.x - handFrame.minX - 14
@@ -759,6 +770,7 @@ struct GameView: View {
                 candidateCard = selected
                 draggedCard = selected
                 isSelectionLocked = true
+                hasMovedAboveHand = false
                 dragPoint = point
                 return
             }
@@ -790,6 +802,7 @@ struct GameView: View {
                     withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.72)) {
                         isSelectionLocked = true
                         draggedCard = candidateCard
+                        hasMovedAboveHand = true
                         dragPoint = point
                     }
                     return
@@ -836,8 +849,8 @@ struct GameView: View {
             } else if defendDropFrame.contains(point) {
                 destination = CGPoint(x: defendDropFrame.midX, y: defendDropFrame.midY)
                 play = { vm.humanDefend(selected) }
-            } else if point.y < handFrame.minY {
-                // Fly the card from the player's hand onto the table before applying the move.
+            } else if hasMovedAboveHand || point.y < handFrame.minY + 18 {
+                // Register the upward release reliably in portrait layout.
                 destination = CGPoint(x: tableDropFrame.midX, y: tableDropFrame.midY)
                 play = { vm.humanPlay(selected) }
             } else {
@@ -864,6 +877,7 @@ struct GameView: View {
         candidateCard = nil
         draggedCard = nil
         isSelectionLocked = false
+        hasMovedAboveHand = false
     }
 
     private func handView(isLandscape: Bool) -> some View {
