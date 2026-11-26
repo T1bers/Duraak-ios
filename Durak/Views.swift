@@ -497,6 +497,9 @@ struct GameView: View {
     @State private var flyingCard: Card? = nil
     @State private var flightPosition: CGPoint = .zero
     @State private var flightID = UUID()
+    @State private var dealVisibleCounts: [Int] = []
+    @State private var isInitialDealInProgress = true
+    @State private var didStartInitialDeal = false
     var onExit: () -> Void
 
     init(players: Int, budget: Double, cheaterMode: Bool, playerTimeout: Int, deckSize: Int, transferEnabled: Bool, drawOnMoveLimit: Bool, throwInScope: ThrowInScope, onExit: @escaping () -> Void) {
@@ -563,6 +566,33 @@ struct GameView: View {
             if vm.state.over { overlay }
         }
         .coordinateSpace(name: "gameBoard")
+        .onAppear { beginInitialDeal() }
+    }
+
+    private func beginInitialDeal() {
+        guard !didStartInitialDeal else { return }
+        didStartInitialDeal = true
+        dealVisibleCounts = Array(repeating: 0, count: vm.state.playerCount)
+        Task { @MainActor in
+            // Reveal the opening six-card hands one card at a time, moving
+            // around the table in the same order as a real deal.
+            for _ in 0..<6 {
+                for player in 0..<vm.state.playerCount {
+                    try? await Task.sleep(nanoseconds: 85_000_000)
+                    guard dealVisibleCounts.count == vm.state.playerCount else { return }
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                        dealVisibleCounts[player] += 1
+                    }
+                }
+            }
+            isInitialDealInProgress = false
+        }
+    }
+
+    private func visibleHandCount(for player: Int, actualCount: Int) -> Int {
+        guard isInitialDealInProgress,
+              dealVisibleCounts.indices.contains(player) else { return actualCount }
+        return min(actualCount, dealVisibleCounts[player])
     }
 
     private var tableDropGeometry: some View {
@@ -635,7 +665,7 @@ struct GameView: View {
                         .lineLimit(1)
                         .fixedSize()
                     HStack(spacing: compactLayout ? -14 : -20) {
-                        ForEach(0..<min(st.hands[p].count, 8), id: \.self) { _ in
+                        ForEach(0..<min(visibleHandCount(for: p, actualCount: st.hands[p].count), 8), id: \.self) { _ in
                             CardView(width: backWidth)
                             .frame(height: backHeight)
                             .transition(.asymmetric(
@@ -967,7 +997,7 @@ struct GameView: View {
         let st = vm.state
         var sorted = st.hands[0]
         Sorts.mergeSort(&sorted, key: { st.sortKey($0) })
-        let cards = sorted.toArray()
+        let cards = Array(sorted.toArray().prefix(visibleHandCount(for: 0, actualCount: sorted.count)))
 
         return GeometryReader { proxy in
             let available = max(1, proxy.size.width - 28)
