@@ -145,11 +145,8 @@ struct GameState: Sendable {
 
     /// Legal human throw-ins remain available while the defender is responding.
     func humanThrowInMoves(for player: Int) -> [Move] {
-        // Throw-ins follow the same turn order as bot throw-ins. This avoids
-        // stale/out-of-turn human actions, especially at the start of a match.
-        guard !over, player >= 0, player < playerCount, actor == player,
-              table.count > 0, table.count < roundLimit,
-              eligibleThrowInPlayers.contains(player) else { return [] }
+        guard !over, player >= 0, player < playerCount, table.count > 0,
+              table.count < roundLimit, eligibleThrowInPlayers.contains(player) else { return [] }
         return hands[player].toArray().filter { tableRanks.contains($0.rank) }.map { Move.attack($0) }
     }
 
@@ -159,9 +156,7 @@ struct GameState: Sendable {
         removeFromHand(player, card)
         table.append(Pair(attack: card, defense: nil))
         tableRanks.increment(card.rank)
-        moveCount += 1
         throwInPassed.removeAll()
-        throwInCursor = nextThrowIn(after: player, excluding: throwInPassed)
         return true
     }
     /// Adds a deliberately illegal off-rank throw-in for the optional cheater mode.
