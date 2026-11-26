@@ -845,7 +845,10 @@ struct GameView: View {
             let destination: CGPoint
             let play: () -> Void
 
-            let transferIsLegal = vm.state.legalMoves().contains(.transfer(selected))
+            let legalMoves = vm.state.legalMoves()
+            let transferIsLegal = legalMoves.contains(.transfer(selected))
+            let canDefend = legalMoves.contains(.defend(vm.state.firstUndefended, selected))
+            let canThrowIn = vm.state.humanThrowInMoves(for: 0).contains(.attack(selected))
             let releasedBesideAttack = point.x >= defendDropFrame.maxX &&
                 abs(point.y - defendDropFrame.midY) <= 82
 
@@ -857,7 +860,11 @@ struct GameView: View {
                 play = { vm.humanTransfer(selected) }
             } else if defendDropFrame.contains(point) {
                 destination = CGPoint(x: defendDropFrame.midX, y: defendDropFrame.midY)
-                play = { vm.humanDefend(selected) }
+                // A matching-rank card may be a valid throw-in even though it
+                // cannot beat the card under the finger. Do not route that move
+                // into the defense handler (which would reject it).
+                play = canDefend ? { vm.humanDefend(selected) } :
+                    (canThrowIn ? { vm.humanPlay(selected) } : { vm.humanDefend(selected) })
             } else if hasMovedAboveHand || point.y < handFrame.minY + 18 {
                 // Register the upward release reliably in portrait layout.
                 destination = CGPoint(x: tableDropFrame.midX, y: tableDropFrame.midY)
