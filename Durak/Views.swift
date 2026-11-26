@@ -48,17 +48,6 @@ struct MenuView: View {
             Table.background
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 22) {
-                    HStack {
-                        Spacer()
-                        Button { showInfo = true } label: {
-                            Image(systemName: "square.stack.3d.up")
-                                .font(.system(size: 19, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(width: 48, height: 48)
-                                .background(Glass.panel, in: RoundedRectangle(cornerRadius: 15))
-                                .overlay(RoundedRectangle(cornerRadius: 15).stroke(Palette.gold.opacity(0.55), lineWidth: 1))
-                        }
-                    }
                     .overlay {
                         VStack(spacing: 2) {
                             ZStack {
@@ -249,7 +238,8 @@ struct InfoView: View {
                     rule("6. Win or draw", "When the deck is empty, players who get rid of all their cards leave the game. The last player holding cards loses. In Draw on stalemate mode, a game that reaches 1,000 moves ends in a draw; Classic mode assigns the loss to the player holding the most cards.")
                     Divider().overlay(Color.white.opacity(0.25))
                     Text("Developers").font(.title2.bold())
-                    Text("Alan & Shoxrux").font(.title3).foregroundColor(.yellow)
+                    developerCard(name: "Alan", id: "250444", telegram: "tg://user?id=6496824057", instagram: "https://www.instagram.com/t1berss?dmpr=MXBkaHdvMDRyZGk2Yg%3D%3D&utm_source=qr")
+                    developerCard(name: "Shohrux", id: "250272", telegram: "https://t.me/shohaa_www", instagram: "https://www.instagram.com/shohaa.www?jplx=MXQ0ODlyODhscXdwNg==")
                 }
                 .foregroundColor(.white)
                 .padding(22)
@@ -264,6 +254,36 @@ struct InfoView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
         }
         .preferredColorScheme(.dark)
+    }
+
+    private func developerCard(name: String, id: String, telegram: String, instagram: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(name).font(.title3.weight(.semibold)).foregroundColor(Palette.gold)
+            Text("Student ID: \(id)").font(.subheadline).foregroundColor(.white.opacity(0.78))
+            HStack(spacing: 12) {
+                socialLink(title: "Telegram", symbol: "paperplane.fill", address: telegram)
+                socialLink(title: "Instagram", symbol: "camera.fill", address: instagram)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Glass.panel, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.13), lineWidth: 1))
+    }
+
+    private func socialLink(title: String, symbol: String, address: String) -> some View {
+        Group {
+            if let url = URL(string: address) {
+                Link(destination: url) {
+                    Label(title, systemImage: symbol)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(Color.white.opacity(0.09), in: Capsule())
+                }
+            }
+        }
     }
 
     private func rule(_ title: String, _ detail: String) -> some View {
