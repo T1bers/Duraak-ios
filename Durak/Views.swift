@@ -68,7 +68,7 @@ struct MenuView: View {
                                 .tracking(3)
                                 .foregroundStyle(LinearGradient(colors: [.white, Color(red: 0.65, green: 0.68, blue: 0.78)], startPoint: .top, endPoint: .bottom))
                                 .shadow(color: .white.opacity(0.25), radius: 8)
-                            Text("MONTE CARLO AI BOTS")
+                            Text("| MONTE CARLO AI BOTS |")
                                 .font(.system(size: 12, weight: .bold))
                                 .tracking(3)
                                 .foregroundColor(Palette.gold)
