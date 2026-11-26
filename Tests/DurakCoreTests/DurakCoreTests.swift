@@ -119,6 +119,18 @@ final class DurakCoreTests: XCTestCase {
         }
     }
 
+    func testSortingHandlesEmptyAndSingleElementInputs() {
+        var empty = DynamicArray<Card>()
+        Sorts.mergeSort(&empty, key: { $0.id })
+        XCTAssertTrue(empty.isEmpty)
+        XCTAssertTrue(Sorts.countingSort([Card](), k: 36, key: { $0.id }).isEmpty)
+
+        var single = DynamicArray<Card>([Card(id: 17)])
+        Sorts.mergeSort(&single, key: { $0.id })
+        XCTAssertEqual(single.toArray().map(\\.id), [17])
+        XCTAssertEqual(Sorts.countingSort([Card(id: 17)], k: 36, key: { $0.id }).map(\\.id), [17])
+    }
+
     func testMergeAndCountingSortAgree() {
         var rng = FastRNG(seed: 987)
         let values = (0..<500).map { _ in Card(id: Int.random(in: 0..<36, using: &rng)) }
