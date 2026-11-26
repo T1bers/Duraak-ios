@@ -143,6 +143,47 @@ struct GameState: Sendable {
         return moves
     }
 
+    /// Adds a deliberately illegal off-rank throw-in for the optional cheater mode.
+    /// This is kept separate from apply(_:) so normal legal-move validation stays strict.
+    @discardableResult
+    mutating func playCheat(_ card: Card, by player: Int) -> Bool {
+        guard !over,
+              player >= 0, player < playerCount,
+              player == actor,
+              table.count > 0, table.count < roundLimit,
+              eligibleThrowInPlayers.contains(player),
+              !tableRanks.contains(card.rank),
+              cheatingPlayer == nil,
+              hands[player].toArray().contains(card) else { return false }
+
+        removeFromHand(player, card)
+        table.append(Pair(attack: card, defense: nil))
+        tableRanks.increment(card.rank)
+        cheatingPlayer = player
+        cheatingTableIndex = table.count - 1
+        throwInPassed.removeAll()
+        return true
+    }
+
+    /// Removes the challenged illegal card from the table and returns it to its owner.
+    @discardableResult
+    mutating func challengeCheat() -> Bool {
+        guard let player = cheatingPlayer,
+              let index = cheatingTableIndex,
+              player >= 0, player < playerCount,
+              index >= 0, index < table.count else { return false }
+
+        let pair = table.remove(at: index)
+        hands[player].append(pair.attack)
+        if let count = tableRanks.get(pair.attack.rank) {
+            if count <= 1 { _ = tableRanks.remove(pair.attack.rank) }
+            else { tableRanks.set(pair.attack.rank, count - 1) }
+        }
+        cheatingPlayer = nil
+        cheatingTableIndex = nil
+        return true
+    }
+
     private mutating func removeFromHand(_ player: Int, _ card: Card) {
         for i in 0..<hands[player].count where hands[player][i] == card {
             hands[player].remove(at: i)
