@@ -453,6 +453,7 @@ private struct TransferDropTarget: View {
 
 // MARK: - Game view
 struct GameView: View {
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @StateObject private var vm: GameVM
     @State private var tableDropFrame: CGRect = .zero
     @State private var defendDropFrame: CGRect = .zero
@@ -475,27 +476,38 @@ struct GameView: View {
     var body: some View {
         ZStack {
             Table.background
-            VStack(spacing: 8) {
-                topBar
-                opponents
-                Spacer(minLength: 0)
-                tableArea
-                    .background(GeometryReader { proxy in
-                        Color.clear.onAppear {
-                            tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: -55, dy: -75)
-                        }.onChange(of: proxy.size) { _ in
-                            tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: -55, dy: -75)
+            Group {
+                if verticalSizeClass == .compact {
+                    VStack(spacing: 3) {
+                        topBar
+                        opponents
+                            .frame(height: 88, alignment: .top)
+                        Spacer(minLength: 0)
+                        tableArea
+                            .frame(height: 104)
+                            .background(tableDropGeometry)
+                        Spacer(minLength: 0)
+                        HStack(spacing: 8) {
+                            statusPill
+                                .frame(maxWidth: .infinity)
+                            actionButtons
+                                .scaleEffect(0.82)
+                                .frame(width: 180, height: 38)
                         }
-                    })
-                Spacer(minLength: 0)
-                Text(vm.state.actor == 0 && !vm.state.over ? "YOUR TURN  ·  \(vm.remainingTime)s" : (vm.thinking ? "BOT IS THINKING…" : vm.message.uppercased()))
-                    .font(.system(size: 13, weight: .bold)).tracking(1)
-                    .foregroundColor(Palette.paleGold).lineLimit(1)
-                    .padding(.horizontal, 16).padding(.vertical, 8)
-                    .background(Glass.panel, in: Capsule())
-                    .overlay(Capsule().stroke(Palette.gold.opacity(0.32), lineWidth: 1))
-                actionButtons
-                handView
+                        handView(isLandscape: true)
+                    }
+                } else {
+                    VStack(spacing: 8) {
+                        topBar
+                        opponents
+                        Spacer(minLength: 0)
+                        tableArea.background(tableDropGeometry)
+                        Spacer(minLength: 0)
+                        statusPill
+                        actionButtons
+                        handView(isLandscape: false)
+                    }
+                }
             }
             .padding(.horizontal, 8)
             if isSelectionLocked, let card = draggedCard {
@@ -510,6 +522,27 @@ struct GameView: View {
             if vm.state.over { overlay }
         }
         .coordinateSpace(name: "gameBoard")
+    }
+
+    private var tableDropGeometry: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onAppear {
+                    tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: -55, dy: -75)
+                }
+                .onChange(of: proxy.size) { _ in
+                    tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: -55, dy: -75)
+                }
+        }
+    }
+
+    private var statusPill: some View {
+        Text(vm.state.actor == 0 && !vm.state.over ? "YOUR TURN  ·  \(vm.remainingTime)s" : (vm.thinking ? "BOT IS THINKING…" : vm.message.uppercased()))
+            .font(.system(size: verticalSizeClass == .compact ? 11 : 13, weight: .bold)).tracking(1)
+            .foregroundColor(Palette.paleGold).lineLimit(1)
+            .padding(.horizontal, 16).padding(.vertical, verticalSizeClass == .compact ? 6 : 8)
+            .background(Glass.panel, in: Capsule())
+            .overlay(Capsule().stroke(Palette.gold.opacity(0.32), lineWidth: 1))
     }
 
     private var topBar: some View {
@@ -571,7 +604,7 @@ struct GameView: View {
     private var tableArea: some View {
         HStack(alignment: .center, spacing: 10) {
             deckView
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(84), spacing: 6), count: 3), spacing: 8) {
                 ForEach(0..<vm.state.table.count, id: \.self) { i in
                     let p = vm.state.table[i]
                     ZStack(alignment: .topLeading) {
@@ -603,6 +636,7 @@ struct GameView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private var shouldShowTransferTarget: Bool {
@@ -700,7 +734,7 @@ struct GameView: View {
                     lastSelectionX = point.x
                     let lockID = UUID()
                     selectionLockID = lockID
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         guard selectionLockID == lockID, candidateCard == selected else { return }
                         withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.72)) {
                             isSelectionLocked = true
@@ -745,7 +779,7 @@ struct GameView: View {
         isSelectionLocked = false
     }
 
-    private var handView: some View {
+    private func handView(isLandscape: Bool) -> some View {
         let st = vm.state
         var sorted = st.hands[0]
         Sorts.mergeSort(&sorted, key: { st.sortKey($0) })
@@ -754,15 +788,14 @@ struct GameView: View {
         return GeometryReader { proxy in
             let available = max(1, proxy.size.width - 28)
             let count = max(cards.count, 1)
-            // Keep small hands separated; only fan/overlap the cards when the hand grows.
-            let compact = count > 7
-            // Use the same compact-hand scale in portrait and landscape.
-            // A wide landscape screen must not spread the fan or change its browsing feel.
-            let compactSizingWidth = min(available, 360)
-            let cardWidth = compact
-                ? min(68, max(38, compactSizingWidth / (CGFloat(count) * 0.58 + 0.42)))
+            // In landscape, keep the cards visually spread because there is enough room.
+            // The browsing/one-second lock behavior still depends only on card count.
+            let needsWheelSelection = count > 7
+            let groupedLayout = needsWheelSelection && !isLandscape
+            let cardWidth = groupedLayout
+                ? min(68, max(38, available / (CGFloat(count) * 0.58 + 0.42)))
                 : min(68, max(38, (available - CGFloat(max(0, count - 1)) * 6) / CGFloat(count)))
-            let spacing: CGFloat = compact ? -cardWidth * 0.42 : 6
+            let spacing: CGFloat = groupedLayout ? -cardWidth * 0.42 : 6
             let step = cardWidth + spacing
             let totalWidth = cardWidth + CGFloat(max(0, count - 1)) * step
             let firstCenter = proxy.size.width / 2 - totalWidth / 2 + cardWidth / 2
@@ -776,9 +809,9 @@ struct GameView: View {
                         card: card,
                         width: cardWidth,
                         isFloating: isSelectionLocked && draggedCard == card,
-                        isWheelSelected: compact && !isSelectionLocked && candidateCard == card,
-                        wheelOffset: compact && !isSelectionLocked ? min(8, abs(distanceFromSelection) * 2.2) : 0,
-                        wheelRotation: compact && !isSelectionLocked ? Double(max(-1, min(1, distanceFromSelection))) * 4.5 : 0
+                        isWheelSelected: needsWheelSelection && !isSelectionLocked && candidateCard == card,
+                        wheelOffset: needsWheelSelection && !isSelectionLocked ? min(8, abs(distanceFromSelection) * 2.2) : 0,
+                        wheelRotation: needsWheelSelection && !isSelectionLocked ? Double(max(-1, min(1, distanceFromSelection))) * 4.5 : 0
                     )
                     .zIndex(isSelectionLocked && draggedCard == card ? 100 : (candidateCard == card ? 90 : Double(cardIndex)))
                 }
@@ -798,7 +831,7 @@ struct GameView: View {
             .onAppear { handFrame = proxy.frame(in: .named("gameBoard")) }
             .onChange(of: proxy.size) { _ in handFrame = proxy.frame(in: .named("gameBoard")) }
         }
-        .frame(height: 150)
+        .frame(height: isLandscape ? 108 : 150)
         .background(Glass.panel, in: RoundedRectangle(cornerRadius: 27))
         .overlay(RoundedRectangle(cornerRadius: 27).stroke(Palette.gold.opacity(0.28), lineWidth: 1))
         .shadow(color: Palette.gold.opacity(0.08), radius: 15)
