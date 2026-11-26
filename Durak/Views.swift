@@ -397,7 +397,7 @@ enum Table {
 }
 
 // MARK: - Card view
-private extension Suit {
+fileprivate extension Suit {
     var cardSymbolName: String {
         switch self {
         case .spades: return "suit.spade.fill"
@@ -777,7 +777,7 @@ struct GameView: View {
 
             // Draw pile stays against the right edge.
             deckView
-                .frame(width: 84, alignment: .trailing)
+                .frame(width: 96, alignment: .trailing)
         }
         .frame(maxWidth: .infinity, alignment: .center)
     }
@@ -799,7 +799,7 @@ struct GameView: View {
     private var deckView: some View {
         ZStack {
             if vm.state.deck.count > 0 {
-                CardView(card: vm.state.deck[0], width: 48).rotationEffect(.degrees(90)).offset(x: 16)
+                CardView(card: vm.state.deck[0], width: 48).rotationEffect(.degrees(90)).offset(x: 12)
                 if vm.state.deck.count > 1 { CardView(width: 48) }
                 Text("\(vm.state.deck.count)").font(.caption.bold()).foregroundColor(.white)
                     .padding(6).background(Circle().fill(Color.black.opacity(0.65)))
@@ -807,7 +807,7 @@ struct GameView: View {
                 Text(vm.state.trump.symbol).font(.system(size: 44)).foregroundColor(.white.opacity(0.9))
             }
         }
-        .frame(width: 84, height: 100)
+        .frame(width: 96, height: 100)
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: vm.state.deck.count)
     }
 
