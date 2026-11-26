@@ -411,24 +411,25 @@ struct CardView: View {
 private struct DraggableHandCard: View {
     let card: Card
     let width: CGFloat
+    let dropFrame: CGRect
     let onPlay: () -> Void
     @GestureState private var dragOffset: CGSize = .zero
     @State private var isDragging = false
 
     var body: some View {
         CardView(card: card, width: width)
-            .offset(y: dragOffset.height)
+            .offset(dragOffset)
             .scaleEffect(isDragging ? 1.06 : 1.0)
             .zIndex(isDragging ? 10 : 0)
             .gesture(
-                DragGesture(minimumDistance: 5)
+                DragGesture(minimumDistance: 3, coordinateSpace: .global)
                     .updating($dragOffset) { value, state, _ in
                         state = value.translation
                     }
                     .onChanged { _ in isDragging = true }
                     .onEnded { value in
                         isDragging = false
-                        if value.translation.height < -35 { onPlay() }
+                        if dropFrame.contains(value.location) { onPlay() }
                     }
             )
             .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isDragging)
@@ -437,6 +438,7 @@ private struct DraggableHandCard: View {
 // MARK: - Game view
 struct GameView: View {
     @StateObject private var vm: GameVM
+    @State private var tableDropFrame: CGRect = .zero
     var onExit: () -> Void
 
     init(players: Int, budget: Double, cheaterMode: Bool, playerTimeout: Int, deckSize: Int, transferEnabled: Bool, drawOnMoveLimit: Bool, throwInScope: ThrowInScope, onExit: @escaping () -> Void) {
@@ -452,6 +454,11 @@ struct GameView: View {
                 opponents
                 Spacer(minLength: 0)
                 tableArea
+                    .background(GeometryReader { proxy in
+                        Color.clear.onAppear {
+                            tableDropFrame = proxy.frame(in: .global)
+                        }
+                    })
                 Spacer(minLength: 0)
                 Text(vm.state.actor == 0 && !vm.state.over ? "YOUR TURN  ·  \(vm.remainingTime)s" : (vm.thinking ? "BOT IS THINKING…" : vm.message.uppercased()))
                     .font(.system(size: 13, weight: .bold)).tracking(1)
@@ -574,7 +581,7 @@ struct GameView: View {
                 return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: -22) {
                 ForEach(cards, id: \.id) { c in
-                    DraggableHandCard(card: c, width: 68) { vm.humanPlay(c) }
+                    DraggableHandCard(card: c, width: 68, dropFrame: tableDropFrame) { vm.humanPlay(c) }
                 }
             }.padding(.horizontal, 26).padding(.top, 17).padding(.bottom, 7)
         }
