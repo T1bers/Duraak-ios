@@ -68,6 +68,21 @@ final class GameVM: ObservableObject {
         perform(move)
     }
 
+    /// Explicitly throw in a matching-rank card without letting humanPlay()
+    /// reinterpret it as a defense against the first undefended attack.
+    func humanThrowIn(_ card: Card) {
+        guard !state.over else { return }
+        history.push(state)
+        guard state.playHumanThrowIn(card, by: 0) else {
+            _ = history.pop()
+            message = "You cannot throw in this card"
+            return
+        }
+        token += 1
+        message = "You throw in \(card.label)"
+        schedule()
+    }
+
     func humanTransfer(_ card: Card) {
         guard state.actor == 0 else { return }
         let move = Move.transfer(card)
