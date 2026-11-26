@@ -290,7 +290,7 @@ enum Table {
             Palette.navy
             RadialGradient(colors: [Color(red: 0.13, green: 0.15, blue: 0.24).opacity(0.78), .clear], center: .top, startRadius: 20, endRadius: 520)
             GeometryReader { geo in
-                ForEach(0..<7, id: \\.self) { i in
+                ForEach(0..<7, id: \.self) { i in
                     Image(systemName: "suit.spade.fill")
                         .font(.system(size: CGFloat(70 + (i % 3) * 25)))
                         .foregroundColor(.white.opacity(0.025))
