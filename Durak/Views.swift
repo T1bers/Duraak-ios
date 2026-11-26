@@ -547,8 +547,7 @@ struct GameView: View {
                 return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: -22) {
                 ForEach(cards, id: \.id) { c in
-                    CardView(card: c, width: 68)
-                        .onTapGesture { vm.humanPlay(c) }
+                    DraggableHandCard(card: c, width: 68) { vm.humanPlay(c) }
                 }
             }.padding(.horizontal, 26).padding(.top, 17).padding(.bottom, 7)
         }
