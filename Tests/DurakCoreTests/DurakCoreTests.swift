@@ -127,8 +127,8 @@ final class DurakCoreTests: XCTestCase {
 
         var single = DynamicArray<Card>([Card(id: 17)])
         Sorts.mergeSort(&single, key: { $0.id })
-        XCTAssertEqual(single.toArray().map(\\.id), [17])
-        XCTAssertEqual(Sorts.countingSort([Card(id: 17)], k: 36, key: { $0.id }).map(\\.id), [17])
+        XCTAssertEqual(single.toArray().map(\.id), [17])
+        XCTAssertEqual(Sorts.countingSort([Card(id: 17)], k: 36, key: { $0.id }).map(\.id), [17])
     }
 
     func testMergeAndCountingSortAgree() {
