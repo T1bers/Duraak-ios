@@ -414,34 +414,27 @@ private struct DraggableHandCard: View {
     let isFloating: Bool
     let onDragChanged: (CGPoint) -> Void
     let onDragEnded: (CGPoint) -> Void
-    @State private var wobble = false
 
     var body: some View {
         CardView(card: card, width: width)
-            .opacity(isFloating ? 0.10 : 1)
-            .offset(y: isFloating ? -18 : 0)
-            .rotationEffect(.degrees(isFloating && wobble ? 1.8 : (isFloating ? -1.8 : 0)))
+            .opacity(isFloating ? 0.08 : 1)
+            .offset(y: isFloating ? -22 : 0)
             .scaleEffect(isFloating ? 1.08 : 1)
-            .shadow(color: isFloating ? Palette.gold.opacity(0.5) : .clear, radius: 12, y: 5)
+            .shadow(color: isFloating ? Palette.gold.opacity(0.55) : .clear, radius: 13, y: 6)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .named("gameBoard"))
-                    .onChanged { value in
-                        if !isFloating { onDragChanged(value.location) }
-                        withAnimation(.linear(duration: 0.12)) { wobble.toggle() }
-                    }
-                    .onEnded { value in
-                        wobble = false
-                        onDragEnded(value.location)
-                    }
+                    .onChanged { value in onDragChanged(value.location) }
+                    .onEnded { value in onDragEnded(value.location) }
             )
-            .animation(.interactiveSpring(response: 0.18, dampingFraction: 0.72), value: isFloating)
+            .animation(.interactiveSpring(response: 0.16, dampingFraction: 0.72), value: isFloating)
     }
 }
 // MARK: - Game view
 struct GameView: View {
     @StateObject private var vm: GameVM
     @State private var tableDropFrame: CGRect = .zero
+    @State private var handFrame: CGRect = .zero
     @State private var draggedCard: Card? = nil
     @State private var dragPoint: CGPoint = .zero
     var onExit: () -> Void
@@ -482,6 +475,7 @@ struct GameView: View {
                     .scaleEffect(1.08)
                     .shadow(color: .black.opacity(0.35), radius: 14, y: 8)
                     .position(dragPoint)
+                    .transaction { $0.animation = nil }
                     .allowsHitTesting(false)
                     .zIndex(1000)
             }
@@ -591,29 +585,42 @@ struct GameView: View {
 
     private var handView: some View {
         let st = vm.state
-        var h = st.hands[0]
-        Sorts.mergeSort(&h, key: { st.sortKey($0) })
-        let cards = h.toArray()
+        var sorted = st.hands[0]
+        Sorts.mergeSort(&sorted, key: { st.sortKey($0) })
+        let cards = sorted.toArray()
 
         return GeometryReader { proxy in
             let available = max(1, proxy.size.width - 28)
             let count = max(cards.count, 1)
             let cardWidth = min(68, max(38, available / (CGFloat(count) * 0.55 + 0.45)))
-            let overlap = cardWidth * 0.55
+            let step = cardWidth * 0.45
+            let totalWidth = cardWidth + CGFloat(max(0, count - 1)) * step
+            let firstCenter = proxy.size.width / 2 - totalWidth / 2 + cardWidth / 2
 
-            HStack(spacing: -overlap) {
+            HStack(spacing: -cardWidth * 0.55) {
                 ForEach(cards, id: \.id) { card in
                     DraggableHandCard(
                         card: card,
                         width: cardWidth,
                         isFloating: draggedCard == card,
                         onDragChanged: { point in
-                            draggedCard = card
+                            if draggedCard == nil { draggedCard = card }
                             dragPoint = point
+                            let handSelectionZone = handFrame.insetBy(dx: 0, dy: -24)
+                            if handSelectionZone.contains(point), !cards.isEmpty {
+                                let localX = point.x - handFrame.minX - 14
+                                let index = Int(round((localX - firstCenter) / max(step, 1)))
+                                let clamped = min(max(index, 0), cards.count - 1)
+                                withAnimation(.interactiveSpring(response: 0.14, dampingFraction: 0.68)) {
+                                    draggedCard = cards[clamped]
+                                }
+                            }
                         },
                         onDragEnded: { point in
                             dragPoint = point
-                            if tableDropFrame.contains(point) { vm.humanPlay(card) }
+                            if let selected = draggedCard, tableDropFrame.contains(point) {
+                                vm.humanPlay(selected)
+                            }
                             draggedCard = nil
                         }
                     )
@@ -622,6 +629,8 @@ struct GameView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             .padding(.horizontal, 14)
+            .onAppear { handFrame = proxy.frame(in: .named("gameBoard")) }
+            .onChange(of: proxy.size) { _ in handFrame = proxy.frame(in: .named("gameBoard")) }
         }
         .frame(height: 150)
         .background(Glass.panel, in: RoundedRectangle(cornerRadius: 27))
