@@ -57,6 +57,27 @@ final class GameVM: ObservableObject {
         _ = history.pop()
         message = "You cannot play this card"
     }
+    func humanDefend(_ card: Card) {
+        guard state.actor == 0 else { return }
+        let index = state.firstUndefended
+        let move = Move.defend(index, card)
+        guard state.legalMoves().contains(move) else {
+            message = "This card cannot beat the attack"
+            return
+        }
+        perform(move)
+    }
+
+    func humanTransfer(_ card: Card) {
+        guard state.actor == 0 else { return }
+        let move = Move.transfer(card)
+        guard state.legalMoves().contains(move) else {
+            message = "This card cannot transfer the attack"
+            return
+        }
+        perform(move)
+    }
+
     func humanTake() { if state.actor == 0 && state.legalMoves().contains(.take) { perform(.take) } }
     func humanPass() { if state.actor == 0 && state.legalMoves().contains(.pass) { perform(.pass) } }
 
