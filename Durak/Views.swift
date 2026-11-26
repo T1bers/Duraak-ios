@@ -636,9 +636,15 @@ struct GameView: View {
                         .fixedSize()
                     HStack(spacing: compactLayout ? -14 : -20) {
                         ForEach(0..<min(st.hands[p].count, 8), id: \.self) { _ in
-                            CardView(width: backWidth).frame(height: backHeight)
+                            CardView(width: backWidth)
+                            .frame(height: backHeight)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .move(edge: .bottom).combined(with: .opacity)
+                            ))
                         }
                     }.frame(height: backHeight)
+                    .animation(.spring(response: 0.42, dampingFraction: 0.78), value: st.hands[p].count)
                     Text("\(st.hands[p].count)")
                         .font(.system(size: compactLayout ? 8 : 11, weight: .bold))
                         .foregroundColor(.white.opacity(0.85))
@@ -667,9 +673,9 @@ struct GameView: View {
     }
 
     private var tableArea: some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 6) {
             deckView
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(64), spacing: 2), count: 3), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(60), spacing: 2), count: 3), spacing: 8) {
                 ForEach(0..<vm.state.table.count, id: \.self) { i in
                     let p = vm.state.table[i]
                     ZStack(alignment: .topLeading) {
@@ -707,6 +713,7 @@ struct GameView: View {
                     })
                 }
             }
+            discardView
         }
         .frame(maxWidth: .infinity, alignment: .center)
     }
@@ -735,7 +742,45 @@ struct GameView: View {
             } else {
                 Text(vm.state.trump.symbol).font(.system(size: 44)).foregroundColor(.white.opacity(0.9))
             }
-        }.frame(width: 96, height: 100)
+        }
+        .frame(width: 84, height: 100)
+        .animation(.spring(response: 0.42, dampingFraction: 0.78), value: vm.state.deck.count)
+    }
+
+    // Completed-round cards remain visible in a separate pile beside the draw deck.
+    private var discardView: some View {
+        let pile = vm.state.discard.items
+        return ZStack {
+            if pile.count > 0 {
+                CardView(width: 40)
+                    .rotationEffect(.degrees(-7))
+                    .offset(x: -5, y: 2)
+                CardView(width: 40)
+                    .rotationEffect(.degrees(5))
+                    .offset(x: 3, y: -1)
+                if let top = vm.state.discard.peek() {
+                    CardView(card: top, width: 40)
+                        .rotationEffect(.degrees(2))
+                        .offset(x: 1, y: -3)
+                }
+                Text("\(pile.count)")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.white)
+                    .padding(5)
+                    .background(Circle().fill(Color.black.opacity(0.82)))
+                    .offset(x: 17, y: 39)
+            } else {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.white.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    .frame(width: 40, height: 58)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white.opacity(0.28))
+            }
+        }
+        .frame(width: 48, height: 100)
+        .animation(.spring(response: 0.42, dampingFraction: 0.78), value: pile.count)
+        .accessibilityLabel("Discard pile, \(pile.count) cards")
     }
 
     private var actionButtons: some View {
@@ -952,11 +997,16 @@ struct GameView: View {
                         wheelOffset: needsWheelSelection && !isSelectionLocked ? min(8, abs(distanceFromSelection) * 2.2) : 0,
                         wheelRotation: needsWheelSelection && !isSelectionLocked ? Double(max(-1, min(1, distanceFromSelection))) * 4.5 : 0
                     )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .move(edge: .top).combined(with: .opacity)
+                    ))
                     .zIndex(isSelectionLocked && draggedCard == card ? 100 : (candidateCard == card ? 90 : Double(cardIndex)))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             .padding(.horizontal, 14)
+            .animation(.spring(response: 0.46, dampingFraction: 0.80), value: cards.count)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .named("gameBoard"))
