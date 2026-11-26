@@ -604,12 +604,24 @@ struct GameView: View {
     }
 
     private func handleHandDragChanged(_ point: CGPoint, cards: [Card], firstCenter: CGFloat, step: CGFloat) {
+        guard !cards.isEmpty else { return }
         let handSelectionZone = handFrame.insetBy(dx: 0, dy: -24)
-        if handSelectionZone.contains(point), !cards.isEmpty {
+        if handSelectionZone.contains(point) {
             let localX = point.x - handFrame.minX - 14
             let index = Int(round((localX - firstCenter) / max(step, 1)))
-            let clamped = min(max(index, 0), cards.count - 1)
-            let selected = cards[clamped]
+            let selected = cards[min(max(index, 0), cards.count - 1)]
+
+            // With a small, non-overlapping hand, allow immediate pick-up and drag.
+            if cards.count <= 7 {
+                selectionLockID = UUID()
+                candidateCard = selected
+                draggedCard = selected
+                isSelectionLocked = true
+                dragPoint = point
+                return
+            }
+
+            // With an overlapping hand, browse first and lock only after pausing.
             if candidateCard != selected {
                 candidateCard = selected
                 lastSelectionX = point.x
