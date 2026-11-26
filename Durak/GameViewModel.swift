@@ -37,23 +37,27 @@ final class GameVM: ObservableObject {
     var canUndo: Bool { !history.isEmpty && !state.over }
 
     func humanPlay(_ card: Card) {
-        guard state.actor == 0, !state.over else { return }
-        var chosen: Move? = nil
-        for m in state.legalMoves() {
-            switch m {
-            case .attack(let c) where c == card: chosen = m
-            case .defend(_, let c) where c == card: chosen = m
-            case .transfer(let c) where c == card: chosen = m
-            default: break
+        guard !state.over else { return }
+        if state.actor == 0 {
+            for move in state.legalMoves() {
+                switch move {
+                case .attack(let c) where c == card, .defend(_, let c) where c == card, .transfer(let c) where c == card:
+                    perform(move)
+                    return
+                default: break
+                }
             }
         }
-        guard let m = chosen else {
-            message = "You cannot play this card"
+        // An eligible human attacker can throw in during the bot defender's turn.
+        if state.playHumanThrowIn(card, by: 0) {
+            history.push(state)
+            token += 1
+            message = "You throw in \(card.label)"
+            schedule()
             return
         }
-        perform(m)
+        message = "You cannot play this card"
     }
-
     func humanTake() { if state.actor == 0 && state.legalMoves().contains(.take) { perform(.take) } }
     func humanPass() { if state.actor == 0 && state.legalMoves().contains(.pass) { perform(.pass) } }
 
