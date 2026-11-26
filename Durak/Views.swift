@@ -397,6 +397,17 @@ enum Table {
 }
 
 // MARK: - Card view
+private extension Suit {
+    var cardSymbolName: String {
+        switch self {
+        case .spades: return "suit.spade.fill"
+        case .clubs: return "suit.club.fill"
+        case .diamonds: return "suit.diamond.fill"
+        case .hearts: return "suit.heart.fill"
+        }
+    }
+}
+
 struct CardView: View {
     var card: Card? = nil
     var width: CGFloat = 62
@@ -408,16 +419,27 @@ struct CardView: View {
             if let c = card {
                 RoundedRectangle(cornerRadius: r).fill(Color.white)
                 VStack {
-                    HStack {
-                        VStack(spacing: -2) {
-                            Text(c.rankLabel).font(.system(size: width * 0.30, weight: .bold))
-                            Text(c.suit.symbol).font(.system(size: width * 0.26))
+                    HStack(alignment: .top, spacing: 0) {
+                        VStack(spacing: 1) {
+                            Text(c.rankLabel)
+                                .font(.system(size: width * 0.27, weight: .bold, design: .rounded))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Image(systemName: c.suit.cardSymbolName)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: width * 0.19, height: width * 0.19)
                         }
-                        Spacer()
+                        Spacer(minLength: 0)
                     }
-                    Spacer()
-                }.padding(width * 0.07)
-                Text(c.suit.symbol).font(.system(size: width * 0.55))
+                    Spacer(minLength: 0)
+                }
+                .padding(width * 0.075)
+
+                Image(systemName: c.suit.cardSymbolName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: width * 0.40, height: width * 0.40)
             } else {
                 RoundedRectangle(cornerRadius: r)
                     .fill(LinearGradient(colors: [Color(red: 0.12, green: 0.29, blue: 0.76), Color(red: 0.025, green: 0.07, blue: 0.28)], startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -703,8 +725,14 @@ struct GameView: View {
     }
 
     private var tableArea: some View {
-        HStack(alignment: .center, spacing: 6) {
-            deckView
+        HStack(alignment: .center, spacing: 0) {
+            // Discard pile stays against the left edge.
+            discardView
+                .frame(width: 48, alignment: .leading)
+
+            Spacer(minLength: 4)
+
+            // Keep the playing field centered and unobstructed by either pile.
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(60), spacing: 2), count: 3), spacing: 8) {
                 ForEach(0..<vm.state.table.count, id: \.self) { i in
                     let p = vm.state.table[i]
@@ -743,7 +771,13 @@ struct GameView: View {
                     })
                 }
             }
-            discardView
+            .frame(width: 184)
+
+            Spacer(minLength: 4)
+
+            // Draw pile stays against the right edge.
+            deckView
+                .frame(width: 84, alignment: .trailing)
         }
         .frame(maxWidth: .infinity, alignment: .center)
     }
