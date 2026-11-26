@@ -412,15 +412,22 @@ private struct DraggableHandCard: View {
     let card: Card
     let width: CGFloat
     let isFloating: Bool
+    let isWheelSelected: Bool
+    let wheelOffset: CGFloat
+    let wheelRotation: Double
 
     var body: some View {
         CardView(card: card, width: width)
             .opacity(isFloating ? 0.08 : 1)
-            .offset(y: isFloating ? -22 : 0)
-            .scaleEffect(isFloating ? 1.08 : 1)
-            .shadow(color: isFloating ? Palette.gold.opacity(0.55) : .clear, radius: 13, y: 6)
+            .offset(y: isFloating ? -22 : (isWheelSelected ? -13 : wheelOffset))
+            .rotationEffect(.degrees(isFloating ? 0 : wheelRotation))
+            .scaleEffect(isFloating ? 1.08 : (isWheelSelected ? 1.045 : 1))
+            .shadow(color: isFloating || isWheelSelected ? Palette.gold.opacity(0.42) : .clear, radius: isFloating ? 13 : 7, y: 5)
             .contentShape(Rectangle())
-            .animation(.interactiveSpring(response: 0.16, dampingFraction: 0.72), value: isFloating)
+            .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.72), value: isFloating)
+            .animation(.interactiveSpring(response: 0.24, dampingFraction: 0.76), value: isWheelSelected)
+            .animation(.interactiveSpring(response: 0.24, dampingFraction: 0.76), value: wheelOffset)
+            .animation(.interactiveSpring(response: 0.24, dampingFraction: 0.76), value: wheelRotation)
     }
 }
 private struct TransferDropTarget: View {
@@ -660,14 +667,16 @@ struct GameView: View {
 
             // With an overlapping hand, browse first and lock only after pausing.
             if candidateCard != selected {
-                candidateCard = selected
+                withAnimation(.interactiveSpring(response: 0.24, dampingFraction: 0.76)) {
+                    candidateCard = selected
+                }
                 lastSelectionX = point.x
                 selectionStartPoint = point
                 isSelectionLocked = false
                 draggedCard = nil
                 let lockID = UUID()
                 selectionLockID = lockID
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     guard selectionLockID == lockID, candidateCard == selected else { return }
                     withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.72)) {
                         isSelectionLocked = true
@@ -747,8 +756,11 @@ struct GameView: View {
             let count = max(cards.count, 1)
             // Keep small hands separated; only fan/overlap the cards when the hand grows.
             let compact = count > 7
+            // Use the same compact-hand scale in portrait and landscape.
+            // A wide landscape screen must not spread the fan or change its browsing feel.
+            let compactSizingWidth = min(available, 360)
             let cardWidth = compact
-                ? min(68, max(38, available / (CGFloat(count) * 0.58 + 0.42)))
+                ? min(68, max(38, compactSizingWidth / (CGFloat(count) * 0.58 + 0.42)))
                 : min(68, max(38, (available - CGFloat(max(0, count - 1)) * 6) / CGFloat(count)))
             let spacing: CGFloat = compact ? -cardWidth * 0.42 : 6
             let step = cardWidth + spacing
@@ -757,12 +769,18 @@ struct GameView: View {
 
             HStack(spacing: spacing) {
                 ForEach(cards, id: \.id) { card in
+                    let cardIndex = cards.firstIndex(of: card) ?? 0
+                    let selectedIndex = candidateCard.flatMap { cards.firstIndex(of: $0) }
+                    let distanceFromSelection = CGFloat(cardIndex - (selectedIndex ?? cardIndex))
                     DraggableHandCard(
                         card: card,
                         width: cardWidth,
-                        isFloating: isSelectionLocked && draggedCard == card
+                        isFloating: isSelectionLocked && draggedCard == card,
+                        isWheelSelected: compact && !isSelectionLocked && candidateCard == card,
+                        wheelOffset: compact && !isSelectionLocked ? min(8, abs(distanceFromSelection) * 2.2) : 0,
+                        wheelRotation: compact && !isSelectionLocked ? Double(max(-1, min(1, distanceFromSelection))) * 4.5 : 0
                     )
-                    .zIndex(isSelectionLocked && draggedCard == card ? 100 : Double(cards.firstIndex(of: card) ?? 0))
+                    .zIndex(isSelectionLocked && draggedCard == card ? 100 : (candidateCard == card ? 90 : Double(cardIndex)))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
