@@ -30,7 +30,7 @@ struct RootView: View {
 
 struct MenuView: View {
     var onStart: (Int, Double, Bool, Int, Int, Bool, Bool, ThrowInScope) -> Void
-    @State private var opponents = 1
+    @State private var opponents = 2
     @State private var level = 1
     @State private var showBench = false
     @State private var benchText = ""
@@ -46,73 +46,117 @@ struct MenuView: View {
     var body: some View {
         ZStack {
             Table.background
-            VStack(spacing: 22) {
-                Text("Durak").font(.system(size: 54, weight: .heavy, design: .serif)).foregroundColor(.white)
-                Text("vs Monte Carlo AI").foregroundColor(.white.opacity(0.8))
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Opponents").foregroundColor(.white).font(.headline)
-                    Picker("", selection: $opponents) {
-                        Text("1").tag(1); Text("2").tag(2); Text("3").tag(3)
-                    }.pickerStyle(.segmented)
-                    Text("Difficulty").foregroundColor(.white).font(.headline).padding(.top, 8)
-                    Picker("", selection: $level) {
-                        Text("Easy").tag(0); Text("Medium").tag(1); Text("Hard").tag(2)
-                    }.pickerStyle(.segmented)
-                }.padding(.horizontal, 30)
-                Toggle("Cheater bots (hidden cheating)", isOn: $cheaterMode)
-                    .toggleStyle(.switch).tint(.yellow)
-                    .foregroundColor(.white).padding(.horizontal, 30)
-                HStack {
-                    Text("Deck size").foregroundColor(.white)
-                    Spacer()
-                    Picker("Deck size", selection: $deck) {
-                        Text("24 cards").tag(24); Text("36 cards").tag(36)
-                    }.pickerStyle(.menu).tint(.yellow)
-                }.padding(.horizontal, 30)
-                Toggle("Transfer Durak", isOn: $transferMode)
-                    .toggleStyle(.switch).tint(.yellow)
-                    .foregroundColor(.white).padding(.horizontal, 30)
-                HStack {
-                    Text("Attackers").foregroundColor(.white)
-                    Spacer()
-                    Picker("Attackers", selection: $throwInScope) {
-                        Text("Neighbors").tag(ThrowInScope.neighbors); Text("All players").tag(ThrowInScope.all)
-                    }.pickerStyle(.menu).tint(.yellow)
-                }.padding(.horizontal, 30)
-                HStack {
-                    Text("Ending rule").foregroundColor(.white)
-                    Spacer()
-                    Picker("Ending rule", selection: $drawOnMoveLimit) {
-                        Text("Classic").tag(false); Text("Draw on stalemate").tag(true)
-                    }.pickerStyle(.menu).tint(.yellow)
-                }.padding(.horizontal, 30)
-                HStack {
-                    Text("Your turn limit").foregroundColor(.white)
-                    Spacer()
-                    Picker("Turn limit", selection: $timeout) {
-                        Text("15 sec").tag(15); Text("30 sec").tag(30); Text("60 sec").tag(60)
-                    }.pickerStyle(.menu).tint(.yellow)
-                }.padding(.horizontal, 30)
-                Button {
-                    onStart(opponents + 1, [0.15, 0.5, 0.9][level], cheaterMode, timeout, deck, transferMode, drawOnMoveLimit, throwInScope)
-                } label: {
-                    Text("Create Game").font(.title2.bold()).frame(width: 220, height: 52)
-                        .background(Color.yellow).foregroundColor(.black).cornerRadius(26)
-                }
-                Button("Sorting Test") { showBench = true }.foregroundColor(.white.opacity(0.85))
-            }
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 22) {
+                    HStack {
+                        Spacer()
+                        Button { showInfo = true } label: {
+                            Image(systemName: "square.stack.3d.up")
+                                .font(.system(size: 19, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 48, height: 48)
+                                .background(Glass.panel, in: RoundedRectangle(cornerRadius: 15))
+                                .overlay(RoundedRectangle(cornerRadius: 15).stroke(Palette.gold.opacity(0.55), lineWidth: 1))
+                        }
+                    }
+                    .overlay {
+                        VStack(spacing: 2) {
+                            ZStack {
+                                Image(systemName: "crown.fill")
+                                    .font(.system(size: 26))
+                                    .foregroundStyle(Palette.gold)
+                                    .offset(y: -37)
+                                Text("♠")
+                                    .font(.system(size: 42, weight: .black))
+                                    .foregroundStyle(Palette.gold)
+                                    .frame(width: 70, height: 70)
+                                    .background(Circle().fill(Color.black.opacity(0.8)))
+                                    .overlay(Circle().stroke(Palette.gold, lineWidth: 3))
+                                    .shadow(color: Palette.gold.opacity(0.75), radius: 18)
+                            }
+                            Text("DURAK")
+                                .font(.system(size: 43, weight: .black, design: .serif))
+                                .tracking(3)
+                                .foregroundStyle(LinearGradient(colors: [.white, Color(red: 0.65, green: 0.68, blue: 0.78)], startPoint: .top, endPoint: .bottom))
+                                .shadow(color: .white.opacity(0.25), radius: 8)
+                            Text("MONTE CARLO AI BOTS")
+                                .font(.system(size: 12, weight: .bold))
+                                .tracking(3)
+                                .foregroundColor(Palette.gold)
+                        }
+                    }
+                    .frame(height: 145)
 
-            .overlay(alignment: .topTrailing) {
-                Button { showInfo = true } label: {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 27, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(12)
-                        .background(Color.black.opacity(0.18), in: Circle())
+                    VStack(alignment: .leading, spacing: 17) {
+                        HStack {
+                            Image(systemName: "slider.horizontal.3").foregroundColor(Palette.gold)
+                            Text("GAME SETTINGS").font(.system(size: 19, weight: .bold)).tracking(1)
+                                .foregroundColor(.white)
+                            Spacer()
+                            Button { showInfo = true } label: {
+                                Image(systemName: "info.circle").font(.system(size: 22)).foregroundColor(.white)
+                            }
+                        }
+                        settingLabel("Opponents")
+                        Picker("Opponents", selection: $opponents) {
+                            Text("1").tag(1); Text("2").tag(2); Text("3").tag(3)
+                        }.pickerStyle(.segmented)
+                        settingLabel("Difficulty")
+                        Picker("Difficulty", selection: $level) {
+                            Text("Easy").tag(0); Text("Medium").tag(1); Text("Hard").tag(2)
+                        }.pickerStyle(.segmented)
+
+                        Divider().overlay(Color.white.opacity(0.12))
+                        toggleRow("Cheater bots", subtitle: "Occasional hidden illegal moves", value: $cheaterMode)
+                        Divider().overlay(Color.white.opacity(0.12))
+                        menuRow("Deck size") {
+                            Picker("Deck size", selection: $deck) {
+                                Text("24 cards").tag(24); Text("36 cards").tag(36)
+                            }.pickerStyle(.menu).tint(Palette.gold)
+                        }
+                        Divider().overlay(Color.white.opacity(0.12))
+                        toggleRow("Transfer Durak", subtitle: "Allow transferring an attack", value: $transferMode)
+                        Divider().overlay(Color.white.opacity(0.12))
+                        menuRow("Attackers") {
+                            Picker("Attackers", selection: $throwInScope) {
+                                Text("Neighbors").tag(ThrowInScope.neighbors); Text("All players").tag(ThrowInScope.all)
+                            }.pickerStyle(.menu).tint(Palette.gold)
+                        }
+                        Divider().overlay(Color.white.opacity(0.12))
+                        menuRow("Ending rule") {
+                            Picker("Ending rule", selection: $drawOnMoveLimit) {
+                                Text("Draw on stalemate").tag(true); Text("Classic").tag(false)
+                            }.pickerStyle(.menu).tint(Palette.gold)
+                        }
+                        Divider().overlay(Color.white.opacity(0.12))
+                        menuRow("Your turn limit") {
+                            Picker("Turn limit", selection: $timeout) {
+                                Text("15 sec").tag(15); Text("30 sec").tag(30); Text("60 sec").tag(60)
+                            }.pickerStyle(.menu).tint(Palette.gold)
+                        }
+                    }
+                    .padding(20)
+                    .background(Glass.panel, in: RoundedRectangle(cornerRadius: 27))
+                    .overlay(RoundedRectangle(cornerRadius: 27).stroke(Color.white.opacity(0.13), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.45), radius: 24, y: 12)
+
+                    Button {
+                        onStart(opponents + 1, [0.15, 0.5, 0.9][level], cheaterMode, timeout, deck, transferMode, drawOnMoveLimit, throwInScope)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "suit.spade.fill").font(.title2)
+                            Text("START GAME").font(.system(size: 20, weight: .black)).tracking(1)
+                        }
+                        .foregroundColor(Color(red: 0.12, green: 0.10, blue: 0.08))
+                        .frame(maxWidth: .infinity).frame(height: 62)
+                        .background(LinearGradient(colors: [Color(red: 1.0, green: 0.88, blue: 0.55), Color(red: 0.88, green: 0.57, blue: 0.17)], startPoint: .top, endPoint: .bottom), in: Capsule())
+                        .overlay(Capsule().stroke(Color.white.opacity(0.55), lineWidth: 1.2))
+                        .shadow(color: Palette.gold.opacity(0.42), radius: 18, y: 5)
+                    }
+                    Button("Sorting Test") { showBench = true }
+                        .font(.footnote.weight(.medium)).foregroundColor(.white.opacity(0.65))
                 }
-                .padding(.top, 12)
-                .padding(.trailing, 18)
-                .accessibilityLabel("Game information")
+                .padding(.horizontal, 22).padding(.top, 14).padding(.bottom, 28)
             }
         }
         .sheet(isPresented: $showInfo) { InfoView() }
@@ -128,7 +172,31 @@ struct MenuView: View {
                         running = false
                     }
                 }.disabled(running)
-            }.padding()
+            }.padding().preferredColorScheme(.dark)
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func settingLabel(_ title: String) -> some View {
+        Text(title).font(.subheadline.weight(.semibold)).foregroundColor(.white.opacity(0.92))
+    }
+
+    private func menuRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(title).foregroundColor(.white).font(.system(size: 15, weight: .medium))
+            Spacer()
+            content()
+        }
+    }
+
+    private func toggleRow(_ title: String, subtitle: String, value: Binding<Bool>) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).foregroundColor(.white).font(.system(size: 15, weight: .medium))
+                Text(subtitle).foregroundColor(.white.opacity(0.48)).font(.caption)
+            }
+            Spacer()
+            Toggle(title, isOn: value).labelsHidden().tint(Palette.gold)
         }
     }
 }
@@ -149,7 +217,7 @@ struct SplashView: View {
                     }.rotationEffect(.degrees(10)).offset(x: 18)
                 }.frame(height: 140)
                 Text("DURAK").font(.system(size: 48, weight: .black, design: .serif)).tracking(5).foregroundColor(.white)
-                Text("CARD GAME").font(.caption.weight(.semibold)).tracking(4).foregroundColor(.white.opacity(0.75))
+                Text("MONTE CARLO AI BOTS").font(.caption.weight(.semibold)).tracking(3).foregroundColor(Palette.gold)
             }
             .opacity(visible ? 1 : 0.35).scaleEffect(visible ? 1 : 0.94)
         }
@@ -206,10 +274,38 @@ struct InfoView: View {
     }
 }
 
+enum Palette {
+    static let gold = Color(red: 1.0, green: 0.76, blue: 0.30)
+    static let paleGold = Color(red: 1.0, green: 0.89, blue: 0.62)
+    static let navy = Color(red: 0.018, green: 0.025, blue: 0.055)
+}
+enum Glass {
+    static var panel: some ShapeStyle {
+        LinearGradient(colors: [Color(red: 0.10, green: 0.12, blue: 0.19).opacity(0.96), Color(red: 0.025, green: 0.03, blue: 0.07).opacity(0.98)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+}
 enum Table {
     static var background: some View {
-        RadialGradient(colors: [Color(red: 0.10, green: 0.45, blue: 0.25), Color(red: 0.03, green: 0.20, blue: 0.11)],
-                       center: .center, startRadius: 20, endRadius: 650).ignoresSafeArea()
+        ZStack {
+            Palette.navy
+            RadialGradient(colors: [Color(red: 0.13, green: 0.15, blue: 0.24).opacity(0.78), .clear], center: .top, startRadius: 20, endRadius: 520)
+            GeometryReader { geo in
+                ForEach(0..<7, id: \\.self) { i in
+                    Image(systemName: "suit.spade.fill")
+                        .font(.system(size: CGFloat(70 + (i % 3) * 25)))
+                        .foregroundColor(.white.opacity(0.025))
+                        .position(x: CGFloat((i * 113 + 35) % max(Int(geo.size.width), 1)), y: CGFloat((i * 191 + 80) % max(Int(geo.size.height), 1)))
+                }
+                Path { p in
+                    p.move(to: CGPoint(x: -20, y: geo.size.height * 0.22))
+                    p.addLine(to: CGPoint(x: geo.size.width * 0.34, y: -20))
+                    p.move(to: CGPoint(x: -20, y: geo.size.height * 0.72))
+                    p.addLine(to: CGPoint(x: geo.size.width + 20, y: geo.size.height * 0.48))
+                    p.move(to: CGPoint(x: geo.size.width * 0.52, y: geo.size.height + 20))
+                    p.addLine(to: CGPoint(x: geo.size.width + 20, y: geo.size.height * 0.82))
+                }.stroke(LinearGradient(colors: [.clear, Palette.gold.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing), lineWidth: 1.1)
+            }
+        }.ignoresSafeArea()
     }
 }
 
@@ -237,14 +333,18 @@ struct CardView: View {
                 Text(c.suit.symbol).font(.system(size: width * 0.55))
             } else {
                 RoundedRectangle(cornerRadius: r)
-                    .fill(LinearGradient(colors: [Color(red: 0.15, green: 0.25, blue: 0.65), Color(red: 0.08, green: 0.12, blue: 0.40)],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                RoundedRectangle(cornerRadius: r * 0.7).stroke(Color.white.opacity(0.6), lineWidth: 2).padding(4)
+                    .fill(LinearGradient(colors: [Color(red: 0.12, green: 0.29, blue: 0.76), Color(red: 0.025, green: 0.07, blue: 0.28)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                RoundedRectangle(cornerRadius: r * 0.7).fill(
+                    LinearGradient(colors: [Color.white.opacity(0.08), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
+                ).padding(7)
+                RoundedRectangle(cornerRadius: r * 0.7).stroke(Color.white.opacity(0.78), lineWidth: 1.8).padding(4)
+                Image(systemName: "suit.spade.fill").font(.system(size: width * 0.38)).foregroundColor(.white.opacity(0.34))
             }
         }
         .foregroundColor(card?.suit.isRed == true ? Color(red: 0.82, green: 0.10, blue: 0.10) : .black)
         .frame(width: width, height: width * 1.45)
-        .overlay(RoundedRectangle(cornerRadius: r).stroke(Color.black.opacity(0.35), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: r).stroke(card == nil ? Color(red: 0.58, green: 0.72, blue: 1.0) : Color.black.opacity(0.18), lineWidth: card == nil ? 2 : 1))
+        .shadow(color: card == nil ? Color.blue.opacity(0.42) : .clear, radius: 7)
         .overlay(RoundedRectangle(cornerRadius: r).fill(Color.black.opacity(dimmed ? 0.35 : 0)))
         .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
     }
