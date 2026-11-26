@@ -568,26 +568,41 @@ struct GameView: View {
     }
 
     private var opponents: some View {
-        HStack(alignment: .top, spacing: 14) {
+        let compactLayout = verticalSizeClass == .compact
+        let avatarSize: CGFloat = compactLayout ? 30 : 48
+        let backWidth: CGFloat = compactLayout ? 21 : 30
+        let backHeight: CGFloat = compactLayout ? 30 : 44
+        return HStack(alignment: .top, spacing: compactLayout ? 22 : 14) {
             ForEach(1..<vm.state.playerCount, id: \.self) { p in
                 let st = vm.state
                 let out = st.hands[p].isEmpty && st.deck.isEmpty
                 let active = st.actor == p
-                VStack(spacing: 4) {
+                VStack(spacing: compactLayout ? 2 : 4) {
                     ZStack {
-                        Circle().fill(Glass.panel).frame(width: 48, height: 48)
-                        Text(out ? "✓" : "🤖").font(.title2)
-                        Circle().stroke(active ? Palette.gold : Color.white.opacity(0.18), lineWidth: active ? 2.5 : 1).frame(width: 48, height: 48)
+                        Circle().fill(Glass.panel).frame(width: avatarSize, height: avatarSize)
+                        Text(out ? "✓" : "🤖").font(compactLayout ? .system(size: 17) : .title2)
+                        Circle().stroke(active ? Palette.gold : Color.white.opacity(0.18), lineWidth: active ? 2.5 : 1)
+                            .frame(width: avatarSize, height: avatarSize)
                     }.shadow(color: active ? Palette.gold.opacity(0.4) : .clear, radius: 9)
                     Text("AI \(p)\(st.over ? "" : (st.attacker == p ? " ⚔️" : (st.defender == p ? " 🛡️" : "")))")
-                        .font(.caption.bold()).foregroundColor(.white)
-                    HStack(spacing: -20) {
-                        ForEach(0..<min(st.hands[p].count, 8), id: \.self) { _ in CardView(width: 30) }
-                    }.frame(height: 44)
-                    Text("\(st.hands[p].count)").font(.caption2.bold()).foregroundColor(.white.opacity(0.85))
+                        .font(.system(size: compactLayout ? 10 : 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .fixedSize()
+                    HStack(spacing: compactLayout ? -14 : -20) {
+                        ForEach(0..<min(st.hands[p].count, 8), id: \.self) { _ in
+                            CardView(width: backWidth).frame(height: backHeight)
+                        }
+                    }.frame(height: backHeight)
+                    Text("\(st.hands[p].count)")
+                        .font(.system(size: compactLayout ? 9 : 11, weight: .bold))
+                        .foregroundColor(.white.opacity(0.85))
                 }
+                .frame(minWidth: compactLayout ? 62 : 76)
             }
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: compactLayout ? 84 : nil, alignment: .top)
     }
 
     private func updatePairDropFrames(index: Int, frame: CGRect) {
