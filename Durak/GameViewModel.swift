@@ -40,22 +40,21 @@ final class GameVM: ObservableObject {
         guard !state.over else { return }
         if state.actor == 0 {
             for move in state.legalMoves() {
-                switch move {
-                case .attack(let c) where c == card, .defend(_, let c) where c == card, .transfer(let c) where c == card:
+                if move == .attack(card) || move == .defend(state.firstUndefended, card) || move == .transfer(card) {
                     perform(move)
                     return
-                default: break
                 }
             }
         }
         // An eligible human attacker can throw in during the bot defender's turn.
+        history.push(state)
         if state.playHumanThrowIn(card, by: 0) {
-            history.push(state)
             token += 1
             message = "You throw in \(card.label)"
             schedule()
             return
         }
+        _ = history.pop()
         message = "You cannot play this card"
     }
     func humanTake() { if state.actor == 0 && state.legalMoves().contains(.take) { perform(.take) } }
