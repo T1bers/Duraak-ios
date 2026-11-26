@@ -531,6 +531,17 @@ struct GameView: View {
         }
     }
 
+    private func updatePairDropFrames(index: Int, frame: CGRect) {
+        guard index == vm.state.firstUndefended else { return }
+        defendDropFrame = frame.insetBy(dx: -8, dy: -8)
+        transferDropFrame = CGRect(
+            x: frame.maxX + 2,
+            y: frame.minY - 8,
+            width: 76,
+            height: frame.height + 16
+        )
+    }
+
     private var tableArea: some View {
         HStack(alignment: .center, spacing: 10) {
             deckView
@@ -547,18 +558,14 @@ struct GameView: View {
                     .onTapGesture { vm.challengeCheat(at: i) }
                     .frame(width: 84, height: 104, alignment: .topLeading)
                     .background(GeometryReader { pairProxy in
-                        Color.clear.onAppear {
-                            if i == vm.state.firstUndefended {
-                                let frame = pairProxy.frame(in: .named("gameBoard"))
-                                defendDropFrame = frame.insetBy(dx: -8, dy: -8)
-                                transferDropFrame = CGRect(
-                                    x: frame.maxX + 2,
-                                    y: frame.minY - 8,
-                                    width: 76,
-                                    height: frame.height + 16
-                                )
+                        Color.clear
+                            .onAppear { updatePairDropFrames(index: i, frame: pairProxy.frame(in: .named("gameBoard"))) }
+                            .onChange(of: vm.state.firstUndefended) { _ in
+                                updatePairDropFrames(index: i, frame: pairProxy.frame(in: .named("gameBoard")))
                             }
-                        }
+                            .onChange(of: vm.state.table.count) { _ in
+                                updatePairDropFrames(index: i, frame: pairProxy.frame(in: .named("gameBoard")))
+                            }
                     })
                 }
             }
