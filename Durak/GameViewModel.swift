@@ -6,6 +6,7 @@ final class GameVM: ObservableObject {
     @Published var thinking = false
     @Published var message = "Your turn"
     @Published var remainingTime = 0
+    // Incremented on replay so GameView can reset and animate a fresh deal.
     @Published private(set) var restartGeneration = 0
 
     private(set) var history = Stack<GameState>()
