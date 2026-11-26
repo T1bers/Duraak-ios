@@ -895,7 +895,7 @@ struct GameView: View {
                     DraggableHandCard(
                         card: card,
                         width: cardWidth,
-                        isFloating: isSelectionLocked && draggedCard == card,
+                        isFloating: (isSelectionLocked && draggedCard == card) || flyingCard == card,
                         isWheelSelected: needsWheelSelection && !isSelectionLocked && candidateCard == card,
                         wheelOffset: needsWheelSelection && !isSelectionLocked ? min(8, abs(distanceFromSelection) * 2.2) : 0,
                         wheelRotation: needsWheelSelection && !isSelectionLocked ? Double(max(-1, min(1, distanceFromSelection))) * 4.5 : 0
