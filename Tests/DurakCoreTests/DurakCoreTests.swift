@@ -62,6 +62,43 @@ final class DurakCoreTests: XCTestCase {
         XCTAssertEqual(all.actor, 3)
     }
 
+    func testHumanThrowInDuringDefenseAdvancesTurnCursor() {
+        var queue = CircularQueue<Int>(capacity: 3)
+        queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
+        let hands = [
+            DynamicArray<Card>([Card(id: 0), Card(id: 9)]),
+            DynamicArray<Card>([Card(id: 2), Card(id: 11)]),
+            DynamicArray<Card>([Card(id: 18), Card(id: 19)])
+        ]
+        var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts, order: queue)
+
+        state.apply(.attack(Card(id: 0)))
+        XCTAssertTrue(state.humanThrowInMoves(for: 0).contains(.attack(Card(id: 9))))
+        XCTAssertTrue(state.playHumanThrowIn(Card(id: 9), by: 0))
+        XCTAssertEqual(state.table.count, 2)
+
+        state.apply(.defend(0, Card(id: 2)))
+        state.apply(.defend(1, Card(id: 11)))
+        XCTAssertEqual(state.actor, 2, "The next throw-in turn must move past the human who already added a card.")
+    }
+
+    func testHumanCannotThrowInOutOfTurnAfterDefenseIsComplete() {
+        var queue = CircularQueue<Int>(capacity: 3)
+        queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
+        let hands = [
+            DynamicArray<Card>([Card(id: 0), Card(id: 9)]),
+            DynamicArray<Card>([Card(id: 2), Card(id: 11)]),
+            DynamicArray<Card>([Card(id: 18), Card(id: 19)])
+        ]
+        var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts, order: queue)
+
+        state.apply(.attack(Card(id: 0)))
+        state.apply(.defend(0, Card(id: 2)))
+        XCTAssertEqual(state.actor, 2)
+        XCTAssertFalse(state.humanThrowInMoves(for: 0).contains(.attack(Card(id: 9))))
+        XCTAssertFalse(state.playHumanThrowIn(Card(id: 9), by: 0))
+    }
+
     func testCheaterCardCanBeCalledOutAndReturnedToBot() {
         var queue = CircularQueue<Int>(capacity: 2)
         queue.enqueue(1); queue.enqueue(0)
