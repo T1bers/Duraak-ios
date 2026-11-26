@@ -660,8 +660,21 @@ struct GameView: View {
                                         }
                                     }
                                 } else if !isSelectionLocked {
-                                    // Keep the candidate parked in the hand while the finger browses.
-                                    lastSelectionX = point.x
+                                    // Any deliberate horizontal movement restarts the hold timer.
+                                    if abs(point.x - lastSelectionX) > 8 {
+                                        lastSelectionX = point.x
+                                        let lockID = UUID()
+                                        selectionLockID = lockID
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                            guard selectionLockID == lockID,
+                                                  candidateCard == newlySelected else { return }
+                                            withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.72)) {
+                                                isSelectionLocked = true
+                                                draggedCard = newlySelected
+                                                dragPoint = point
+                                            }
+                                        }
+                                    }
                                 } else {
                                     dragPoint = point
                                 }
