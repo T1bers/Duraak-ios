@@ -663,7 +663,7 @@ struct GameView: View {
         defendDropFrame = frame.insetBy(dx: -8, dy: -8)
         // Match the hit area and visual cue to a normal table card.
         transferDropFrame = CGRect(
-            x: frame.maxX + 58,
+            x: frame.maxX + 2,
             y: frame.minY + 11,
             width: 56,
             height: 82
