@@ -661,7 +661,7 @@ struct GameView: View {
         guard index == vm.state.firstUndefended else { return }
         defendDropFrame = frame.insetBy(dx: -8, dy: -8)
         transferDropFrame = CGRect(
-            x: frame.maxX + 4,
+            x: frame.maxX + 34,
             y: frame.minY,
             width: 64,
             height: 104
