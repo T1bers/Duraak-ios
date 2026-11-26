@@ -18,13 +18,43 @@ struct RootView: View {
     @State private var showSplash = true
 
     var body: some View {
-        if showSplash {
-            SplashView { showSplash = false }
-        } else if let c = config {
-            GameView(players: c.players, budget: c.budget, cheaterMode: c.cheaterMode, playerTimeout: c.playerTimeout, deckSize: c.deckSize, transferEnabled: c.transferEnabled, drawOnMoveLimit: c.drawOnMoveLimit, throwInScope: c.throwInScope, onExit: { config = nil }).id(c.id)
-        } else {
-            MenuView(onStart: { p, b, cheat, timeout, deck, transferMode, drawOnMoveLimit, throwInScope in config = GameConfig(players: p, budget: b, cheaterMode: cheat, playerTimeout: timeout, deckSize: deck, transferEnabled: transferMode, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope) })
+        ZStack {
+            if showSplash {
+                SplashView { withAnimation(.easeInOut(duration: 0.38)) { showSplash = false } }
+                    .transition(.opacity)
+            } else if let c = config {
+                GameView(
+                    players: c.players,
+                    budget: c.budget,
+                    cheaterMode: c.cheaterMode,
+                    playerTimeout: c.playerTimeout,
+                    deckSize: c.deckSize,
+                    transferEnabled: c.transferEnabled,
+                    drawOnMoveLimit: c.drawOnMoveLimit,
+                    throwInScope: c.throwInScope,
+                    onExit: {
+                        withAnimation(.easeInOut(duration: 0.36)) { config = nil }
+                    }
+                )
+                .id(c.id)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
+            } else {
+                MenuView(onStart: { p, b, cheat, timeout, deck, transferMode, drawOnMoveLimit, throwInScope in
+                    withAnimation(.easeInOut(duration: 0.36)) {
+                        config = GameConfig(players: p, budget: b, cheaterMode: cheat, playerTimeout: timeout, deckSize: deck, transferEnabled: transferMode, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope)
+                    }
+                })
+                .transition(.asymmetric(
+                    insertion: .move(edge: .leading).combined(with: .opacity),
+                    removal: .move(edge: .trailing).combined(with: .opacity)
+                ))
+            }
         }
+        .animation(.easeInOut(duration: 0.36), value: showSplash)
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -39,7 +69,7 @@ struct MenuView: View {
     @State private var cheaterMode = false
     @State private var timeout = 30
     @State private var deck = 36
-    @State private var transferMode = false
+    @State private var transferMode = true
     @State private var drawOnMoveLimit = true
     @State private var throwInScope: ThrowInScope = .neighbors
 
@@ -432,21 +462,20 @@ private struct DraggableHandCard: View {
 }
 private struct TransferDropTarget: View {
     var body: some View {
-        VStack(spacing: 5) {
-            Image(systemName: "arrow.turn.up.right")
-                .font(.system(size: 21, weight: .bold))
-            Text("TRANSFER")
-                .font(.system(size: 8, weight: .black))
-                .tracking(0.4)
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(LinearGradient(
+                    colors: [Color(red: 1, green: 0.91, blue: 0.64), Color(red: 0.88, green: 0.57, blue: 0.17)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ))
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.white.opacity(0.82), lineWidth: 1.4)
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 16, weight: .black))
+                .foregroundColor(Color(red: 0.12, green: 0.10, blue: 0.08))
         }
-        .foregroundColor(Color(red: 0.12, green: 0.10, blue: 0.08))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 11)
-                .fill(LinearGradient(colors: [Color(red: 1, green: 0.88, blue: 0.55), Color(red: 0.88, green: 0.57, blue: 0.17)], startPoint: .top, endPoint: .bottom))
-        )
-        .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color.white.opacity(0.8), lineWidth: 1.5))
-        .shadow(color: Palette.gold.opacity(0.45), radius: 8, y: 3)
+        .shadow(color: Palette.gold.opacity(0.42), radius: 7, y: 3)
         .allowsHitTesting(false)
     }
 }
@@ -480,8 +509,7 @@ struct GameView: View {
                 if verticalSizeClass == .compact {
                     VStack(spacing: 3) {
                         topBar
-                            .scaleEffect(0.78)
-                            .frame(height: 34)
+                            .frame(height: 42)
                         opponents
                             .frame(height: 80, alignment: .top)
                         Spacer(minLength: 0)
@@ -489,12 +517,13 @@ struct GameView: View {
                             .frame(height: 100)
                             .background(tableDropGeometry)
                         Spacer(minLength: 0)
-                        HStack(spacing: 8) {
+                        HStack(spacing: 6) {
                             statusPill
                                 .frame(maxWidth: .infinity)
+                                .layoutPriority(0)
                             actionButtons
-                                .scaleEffect(0.82)
-                                .frame(width: 180, height: 38)
+                                .frame(width: 224, height: 40)
+                                .layoutPriority(1)
                         }
                         handView(isLandscape: true)
                     }
@@ -540,8 +569,8 @@ struct GameView: View {
 
     private var statusPill: some View {
         Text(vm.state.actor == 0 && !vm.state.over ? "YOUR TURN  ·  \(vm.remainingTime)s" : (vm.thinking ? "BOT IS THINKING…" : vm.message.uppercased()))
-            .font(.system(size: verticalSizeClass == .compact ? 11 : 13, weight: .bold)).tracking(1)
-            .foregroundColor(Palette.paleGold).lineLimit(1)
+            .font(.system(size: verticalSizeClass == .compact ? 9 : 13, weight: .bold)).tracking(verticalSizeClass == .compact ? 0.3 : 1)
+            .foregroundColor(Palette.paleGold).lineLimit(1).minimumScaleFactor(0.72)
             .padding(.horizontal, 16).padding(.vertical, verticalSizeClass == .compact ? 6 : 8)
             .background(Glass.panel, in: Capsule())
             .overlay(Capsule().stroke(Palette.gold.opacity(0.32), lineWidth: 1))
@@ -566,7 +595,8 @@ struct GameView: View {
             .padding(.horizontal, 15).padding(.vertical, 8)
             .background(Glass.panel, in: Capsule())
             .overlay(Capsule().stroke(Palette.gold.opacity(0.65), lineWidth: 1))
-        }.padding(.top, 7)
+        }
+        .padding(.top, verticalSizeClass == .compact ? 0 : 7)
     }
 
     private var opponents: some View {
@@ -612,9 +642,9 @@ struct GameView: View {
         defendDropFrame = frame.insetBy(dx: -8, dy: -8)
         transferDropFrame = CGRect(
             x: frame.maxX + 2,
-            y: frame.minY - 8,
-            width: 76,
-            height: frame.height + 16
+            y: frame.minY + 22,
+            width: 44,
+            height: 58
         )
     }
 
@@ -636,8 +666,8 @@ struct GameView: View {
                     .overlay(alignment: .trailing) {
                         if i == vm.state.firstUndefended && shouldShowTransferTarget {
                             TransferDropTarget()
-                                .frame(width: 76, height: 104)
-                                .offset(x: 78)
+                                .frame(width: 40, height: 54)
+                                .offset(x: 43)
                         }
                     }
                     .background(GeometryReader { pairProxy in
@@ -657,11 +687,9 @@ struct GameView: View {
     }
 
     private var shouldShowTransferTarget: Bool {
-        guard vm.state.actor == 0, vm.state.transferEnabled else { return false }
-        return vm.state.legalMoves().contains {
-            if case .transfer = $0 { return true }
-            return false
-        }
+        // Keep the transfer cue visible whenever Transfer Durak is enabled.
+        // The move itself is still validated by GameState when the card is dropped.
+        return vm.state.actor == 0 && vm.state.transferEnabled && vm.state.firstUndefended >= 0
     }
 
     private var deckView: some View {
@@ -679,7 +707,7 @@ struct GameView: View {
 
     private var actionButtons: some View {
         let moves = vm.state.actor == 0 ? vm.state.legalMoves() : []
-        return HStack(spacing: 10) {
+        return HStack(spacing: verticalSizeClass == .compact ? 5 : 10) {
             Button { vm.undo() } label: { pill("↩︎ Undo", Color.white.opacity(0.85)) }.disabled(!vm.canUndo)
             if moves.contains(.take) {
                 Button { vm.humanTake() } label: { pill("Take", Color.orange) }
@@ -687,12 +715,19 @@ struct GameView: View {
             if moves.contains(.pass) {
                 Button { vm.humanPass() } label: { pill(vm.state.defenderTaking ? "Let take" : "Done", Color.yellow) }
             }
-        }.frame(height: 46)
+        }
+        .frame(height: verticalSizeClass == .compact ? 38 : 46)
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private func pill(_ t: String, _ c: Color) -> some View {
-        Text(t.uppercased()).font(.system(size: 14, weight: .black)).tracking(0.5).foregroundColor(.black)
-            .padding(.horizontal, 19).padding(.vertical, 10)
+        Text(t.uppercased())
+            .font(.system(size: verticalSizeClass == .compact ? 10 : 14, weight: .black))
+            .tracking(verticalSizeClass == .compact ? 0 : 0.5)
+            .lineLimit(1).minimumScaleFactor(0.72)
+            .foregroundColor(.black)
+            .padding(.horizontal, verticalSizeClass == .compact ? 9 : 19)
+            .padding(.vertical, verticalSizeClass == .compact ? 7 : 10)
             .background(Capsule().fill(c))
             .overlay(Capsule().stroke(Color.white.opacity(0.45), lineWidth: 1))
             .shadow(color: c.opacity(0.28), radius: 7, y: 3)
