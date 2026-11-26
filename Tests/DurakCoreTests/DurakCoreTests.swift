@@ -117,6 +117,38 @@ final class DurakCoreTests: XCTestCase {
         XCTAssertTrue(state.hands[1].toArray().contains(Card(id: 12)))
     }
 
+    func testTransferRequiresNextDefenderToHaveEnoughCards() {
+        var queue = CircularQueue<Int>(capacity: 3)
+        queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
+        let hands = [
+            DynamicArray<Card>([Card(id: 0)]),
+            DynamicArray<Card>([Card(id: 9), Card(id: 10)]),
+            DynamicArray<Card>([Card(id: 18)])
+        ]
+        var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts,
+                              order: queue, transferEnabled: true)
+        state.apply(.attack(Card(id: 0)))
+
+        // The matching-rank card exists, but the next defender has only one
+        // card and cannot cover both attacks after a transfer.
+        XCTAssertFalse(state.legalMoves().contains(.transfer(Card(id: 9))))
+    }
+
+    func testTransferOnlyAcceptsTheAttackedRank() {
+        var queue = CircularQueue<Int>(capacity: 3)
+        queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
+        let hands = [
+            DynamicArray<Card>([Card(id: 0)]),
+            DynamicArray<Card>([Card(id: 9), Card(id: 10)]),
+            DynamicArray<Card>([Card(id: 18), Card(id: 19)])
+        ]
+        var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts,
+                              order: queue, transferEnabled: true)
+        state.apply(.attack(Card(id: 0)))
+        XCTAssertTrue(state.legalMoves().contains(.transfer(Card(id: 9))))
+        XCTAssertFalse(state.legalMoves().contains(.transfer(Card(id: 10))))
+    }
+
     func testTransferMovesAttackToNextDefender() {
         var queue = CircularQueue<Int>(capacity: 3)
         queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
