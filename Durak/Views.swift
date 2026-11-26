@@ -480,11 +480,13 @@ struct GameView: View {
                 if verticalSizeClass == .compact {
                     VStack(spacing: 3) {
                         topBar
+                            .scaleEffect(0.78)
+                            .frame(height: 34)
                         opponents
-                            .frame(height: 88, alignment: .top)
+                            .frame(height: 80, alignment: .top)
                         Spacer(minLength: 0)
                         tableArea
-                            .frame(height: 104)
+                            .frame(height: 100)
                             .background(tableDropGeometry)
                         Spacer(minLength: 0)
                         HStack(spacing: 8) {
@@ -569,23 +571,23 @@ struct GameView: View {
 
     private var opponents: some View {
         let compactLayout = verticalSizeClass == .compact
-        let avatarSize: CGFloat = compactLayout ? 30 : 48
-        let backWidth: CGFloat = compactLayout ? 21 : 30
-        let backHeight: CGFloat = compactLayout ? 30 : 44
+        let avatarSize: CGFloat = compactLayout ? 28 : 48
+        let backWidth: CGFloat = compactLayout ? 19 : 30
+        let backHeight: CGFloat = compactLayout ? 27 : 44
         return HStack(alignment: .top, spacing: compactLayout ? 22 : 14) {
             ForEach(1..<vm.state.playerCount, id: \.self) { p in
                 let st = vm.state
                 let out = st.hands[p].isEmpty && st.deck.isEmpty
                 let active = st.actor == p
-                VStack(spacing: compactLayout ? 2 : 4) {
+                VStack(spacing: compactLayout ? 1 : 4) {
                     ZStack {
                         Circle().fill(Glass.panel).frame(width: avatarSize, height: avatarSize)
-                        Text(out ? "✓" : "🤖").font(compactLayout ? .system(size: 17) : .title2)
+                        Text(out ? "✓" : "🤖").font(compactLayout ? .system(size: 16) : .title2)
                         Circle().stroke(active ? Palette.gold : Color.white.opacity(0.18), lineWidth: active ? 2.5 : 1)
                             .frame(width: avatarSize, height: avatarSize)
                     }.shadow(color: active ? Palette.gold.opacity(0.4) : .clear, radius: 9)
                     Text("AI \(p)\(st.over ? "" : (st.attacker == p ? " ⚔️" : (st.defender == p ? " 🛡️" : "")))")
-                        .font(.system(size: compactLayout ? 10 : 12, weight: .bold))
+                        .font(.system(size: compactLayout ? 9 : 12, weight: .bold))
                         .foregroundColor(.white)
                         .lineLimit(1)
                         .fixedSize()
@@ -595,14 +597,14 @@ struct GameView: View {
                         }
                     }.frame(height: backHeight)
                     Text("\(st.hands[p].count)")
-                        .font(.system(size: compactLayout ? 9 : 11, weight: .bold))
+                        .font(.system(size: compactLayout ? 8 : 11, weight: .bold))
                         .foregroundColor(.white.opacity(0.85))
                 }
                 .frame(minWidth: compactLayout ? 62 : 76)
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: compactLayout ? 84 : nil, alignment: .top)
+        .frame(height: compactLayout ? 78 : nil, alignment: .top)
     }
 
     private func updatePairDropFrames(index: Int, frame: CGRect) {
@@ -619,7 +621,7 @@ struct GameView: View {
     private var tableArea: some View {
         HStack(alignment: .center, spacing: 10) {
             deckView
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(84), spacing: 6), count: 3), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(64), spacing: 2), count: 3), spacing: 8) {
                 ForEach(0..<vm.state.table.count, id: \.self) { i in
                     let p = vm.state.table[i]
                     ZStack(alignment: .topLeading) {
@@ -630,7 +632,7 @@ struct GameView: View {
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { vm.challengeCheat(at: i) }
-                    .frame(width: 84, height: 104, alignment: .topLeading)
+                    .frame(width: 64, height: 104, alignment: .topLeading)
                     .overlay(alignment: .trailing) {
                         if i == vm.state.firstUndefended && shouldShowTransferTarget {
                             TransferDropTarget()
@@ -846,7 +848,7 @@ struct GameView: View {
             .onAppear { handFrame = proxy.frame(in: .named("gameBoard")) }
             .onChange(of: proxy.size) { _ in handFrame = proxy.frame(in: .named("gameBoard")) }
         }
-        .frame(height: isLandscape ? 108 : 150)
+        .frame(height: isLandscape ? 96 : 150)
         .background(Glass.panel, in: RoundedRectangle(cornerRadius: 27))
         .overlay(RoundedRectangle(cornerRadius: 27).stroke(Palette.gold.opacity(0.28), lineWidth: 1))
         .shadow(color: Palette.gold.opacity(0.08), radius: 15)
