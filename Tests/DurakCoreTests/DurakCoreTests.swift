@@ -218,6 +218,20 @@ final class DurakCoreTests: XCTestCase {
         XCTAssertLessThan(chiSquare, 70.0)
     }
 
+    func testRequiredProposalExperiments() {
+        let sorting = ProjectExperiments.sortComparisonCSV()
+        XCTAssertTrue(sorting.contains("100000"))
+        print("\n" + sorting)
+
+        let scaling = ProjectExperiments.monteCarloScalingCSV()
+        XCTAssertTrue(scaling.contains("10000"))
+        print("\n" + scaling)
+
+        let strength = ProjectExperiments.randomOpponentWinRateCSV(games: 500, playoutsPerMove: 10)
+        XCTAssertTrue(strength.contains("500"))
+        print("\n" + strength)
+    }
+
     private func chooseMove(_ moves: [Move], _ state: GameState) -> Move {
         var selected = moves[0]
         var best = Double.greatestFiniteMagnitude
