@@ -435,6 +435,7 @@ struct GameView: View {
     @State private var isSelectionLocked = false
     @State private var selectionLockID = UUID()
     @State private var lastSelectionX: CGFloat = .zero
+    @State private var selectionStartPoint: CGPoint = .zero
     @State private var dragPoint: CGPoint = .zero
     var onExit: () -> Void
 
@@ -625,6 +626,7 @@ struct GameView: View {
             if candidateCard != selected {
                 candidateCard = selected
                 lastSelectionX = point.x
+                selectionStartPoint = point
                 isSelectionLocked = false
                 draggedCard = nil
                 let lockID = UUID()
@@ -638,6 +640,17 @@ struct GameView: View {
                     }
                 }
             } else if !isSelectionLocked {
+                // A clear upward movement means the player is dragging this card
+                // toward the table, not browsing horizontally through the fan.
+                if selectionStartPoint.y - point.y > 22 {
+                    selectionLockID = UUID()
+                    withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.72)) {
+                        isSelectionLocked = true
+                        draggedCard = candidateCard
+                        dragPoint = point
+                    }
+                    return
+                }
                 if abs(point.x - lastSelectionX) > 8 {
                     lastSelectionX = point.x
                     let lockID = UUID()
@@ -656,6 +669,15 @@ struct GameView: View {
             }
         } else if isSelectionLocked {
             dragPoint = point
+        } else if candidateCard != nil, selectionStartPoint.y - point.y > 22 {
+            // Keep the currently highlighted card fixed once the gesture leaves
+            // the hand vertically; never recalculate its index during the drag.
+            selectionLockID = UUID()
+            withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.72)) {
+                isSelectionLocked = true
+                draggedCard = candidateCard
+                dragPoint = point
+            }
         }
     }
 
