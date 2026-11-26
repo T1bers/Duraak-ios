@@ -522,6 +522,7 @@ struct GameView: View {
     @State private var dealVisibleCounts: [Int] = []
     @State private var isInitialDealInProgress = true
     @State private var didStartInitialDeal = false
+    @State private var dealAnimationID = UUID()
     var onExit: () -> Void
 
     init(players: Int, budget: Double, cheaterMode: Bool, playerTimeout: Int, deckSize: Int, transferEnabled: Bool, drawOnMoveLimit: Bool, throwInScope: ThrowInScope, onExit: @escaping () -> Void) {
@@ -589,11 +590,23 @@ struct GameView: View {
         }
         .coordinateSpace(name: "gameBoard")
         .onAppear { beginInitialDeal() }
+        .onChange(of: vm.restartGeneration) { _ in
+            // A replay is a fresh deal: reset every visual counter and cancel
+            // any in-flight deal animation from the previous game.
+            dealAnimationID = UUID()
+            dealVisibleCounts = Array(repeating: 0, count: vm.state.playerCount)
+            didStartInitialDeal = false
+            isInitialDealInProgress = true
+            beginInitialDeal()
+        }
     }
 
     private func beginInitialDeal() {
         guard !didStartInitialDeal else { return }
         didStartInitialDeal = true
+        dealAnimationID = UUID()
+        let currentDealID = dealAnimationID
+        isInitialDealInProgress = true
         dealVisibleCounts = Array(repeating: 0, count: vm.state.playerCount)
         Task { @MainActor in
             // Reveal the opening six-card hands one card at a time, moving
@@ -601,12 +614,15 @@ struct GameView: View {
             for _ in 0..<6 {
                 for player in 0..<vm.state.playerCount {
                     try? await Task.sleep(nanoseconds: 85_000_000)
-                    guard dealVisibleCounts.count == vm.state.playerCount else { return }
+                    guard dealAnimationID == currentDealID,
+                          !vm.state.over,
+                          dealVisibleCounts.count == vm.state.playerCount else { return }
                     withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
                         dealVisibleCounts[player] += 1
                     }
                 }
             }
+            guard dealAnimationID == currentDealID else { return }
             isInitialDealInProgress = false
         }
     }
