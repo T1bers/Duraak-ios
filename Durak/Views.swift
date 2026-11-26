@@ -275,13 +275,51 @@ struct InfoView: View {
         Group {
             if let url = URL(string: address) {
                 Link(destination: url) {
-                    Label(title, systemImage: symbol)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 9)
-                        .background(Color.white.opacity(0.09), in: Capsule())
+                    HStack(spacing: 8) {
+                        socialIcon(for: title)
+                            .frame(width: 23, height: 23)
+                        Text(title).font(.subheadline.weight(.semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(Color.white.opacity(0.09), in: Capsule())
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func socialIcon(for title: String) -> some View {
+        if title == "Telegram" {
+            ZStack {
+                Circle().fill(Color(red: 0.13, green: 0.65, blue: 0.91))
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .rotationEffect(.degrees(-12))
+                    .offset(x: -0.5, y: 0.5)
+            }
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(LinearGradient(
+                        colors: [
+                            Color(red: 0.98, green: 0.72, blue: 0.28),
+                            Color(red: 0.91, green: 0.25, blue: 0.43),
+                            Color(red: 0.48, green: 0.25, blue: 0.72)
+                        ],
+                        startPoint: .bottomLeading,
+                        endPoint: .topTrailing
+                    ))
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.white, lineWidth: 1.7)
+                    .frame(width: 13, height: 13)
+                Circle().stroke(Color.white, lineWidth: 1.7)
+                    .frame(width: 5, height: 5)
+                Circle().fill(Color.white)
+                    .frame(width: 2, height: 2)
+                    .offset(x: 5, y: -5)
             }
         }
     }
