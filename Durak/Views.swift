@@ -412,8 +412,6 @@ private struct DraggableHandCard: View {
     let card: Card
     let width: CGFloat
     let isFloating: Bool
-    let onDragChanged: (CGPoint) -> Void
-    let onDragEnded: (CGPoint) -> Void
 
     var body: some View {
         CardView(card: card, width: width)
@@ -422,11 +420,6 @@ private struct DraggableHandCard: View {
             .scaleEffect(isFloating ? 1.08 : 1)
             .shadow(color: isFloating ? Palette.gold.opacity(0.55) : .clear, radius: 13, y: 6)
             .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .named("gameBoard"))
-                    .onChanged { value in onDragChanged(value.location) }
-                    .onEnded { value in onDragEnded(value.location) }
-            )
             .animation(.interactiveSpring(response: 0.16, dampingFraction: 0.72), value: isFloating)
     }
 }
@@ -610,6 +603,67 @@ struct GameView: View {
             .shadow(color: c.opacity(0.28), radius: 7, y: 3)
     }
 
+    private func handleHandDragChanged(_ point: CGPoint, cards: [Card], firstCenter: CGFloat, step: CGFloat) {
+        let handSelectionZone = handFrame.insetBy(dx: 0, dy: -24)
+        if handSelectionZone.contains(point), !cards.isEmpty {
+            let localX = point.x - handFrame.minX - 14
+            let index = Int(round((localX - firstCenter) / max(step, 1)))
+            let clamped = min(max(index, 0), cards.count - 1)
+            let selected = cards[clamped]
+            if candidateCard != selected {
+                candidateCard = selected
+                lastSelectionX = point.x
+                isSelectionLocked = false
+                draggedCard = nil
+                let lockID = UUID()
+                selectionLockID = lockID
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    guard selectionLockID == lockID, candidateCard == selected else { return }
+                    withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.72)) {
+                        isSelectionLocked = true
+                        draggedCard = selected
+                        dragPoint = point
+                    }
+                }
+            } else if !isSelectionLocked {
+                if abs(point.x - lastSelectionX) > 8 {
+                    lastSelectionX = point.x
+                    let lockID = UUID()
+                    selectionLockID = lockID
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                        guard selectionLockID == lockID, candidateCard == selected else { return }
+                        withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.72)) {
+                            isSelectionLocked = true
+                            draggedCard = selected
+                            dragPoint = point
+                        }
+                    }
+                }
+            } else {
+                dragPoint = point
+            }
+        } else if isSelectionLocked {
+            dragPoint = point
+        }
+    }
+
+    private func handleHandDragEnded(_ point: CGPoint) {
+        dragPoint = point
+        if isSelectionLocked, let selected = draggedCard {
+            if transferDropFrame.contains(point) {
+                vm.humanTransfer(selected)
+            } else if defendDropFrame.contains(point) {
+                vm.humanDefend(selected)
+            } else if tableDropFrame.contains(point) {
+                vm.humanPlay(selected)
+            }
+        }
+        selectionLockID = UUID()
+        candidateCard = nil
+        draggedCard = nil
+        isSelectionLocked = false
+    }
+
     private var handView: some View {
         let st = vm.state
         var sorted = st.hands[0]
@@ -634,76 +688,23 @@ struct GameView: View {
                     DraggableHandCard(
                         card: card,
                         width: cardWidth,
-                        isFloating: isSelectionLocked && draggedCard == card,
-                        onDragChanged: { point in
-                            let handSelectionZone = handFrame.insetBy(dx: 0, dy: -24)
-                            if handSelectionZone.contains(point), !cards.isEmpty {
-                                let localX = point.x - handFrame.minX - 14
-                                let index = Int(round((localX - firstCenter) / max(step, 1)))
-                                let clamped = min(max(index, 0), cards.count - 1)
-                                let newlySelected = cards[clamped]
-                                if candidateCard != newlySelected {
-                                    candidateCard = newlySelected
-                                    lastSelectionX = point.x
-                                    isSelectionLocked = false
-                                    draggedCard = nil
-                                    let lockID = UUID()
-                                    selectionLockID = lockID
-                                    // The player must pause on one card before it can be lifted.
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                                        guard selectionLockID == lockID,
-                                              candidateCard == newlySelected else { return }
-                                        withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.72)) {
-                                            isSelectionLocked = true
-                                            draggedCard = newlySelected
-                                            dragPoint = point
-                                        }
-                                    }
-                                } else if !isSelectionLocked {
-                                    // Any deliberate horizontal movement restarts the hold timer.
-                                    if abs(point.x - lastSelectionX) > 8 {
-                                        lastSelectionX = point.x
-                                        let lockID = UUID()
-                                        selectionLockID = lockID
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                                            guard selectionLockID == lockID,
-                                                  candidateCard == newlySelected else { return }
-                                            withAnimation(.interactiveSpring(response: 0.22, dampingFraction: 0.72)) {
-                                                isSelectionLocked = true
-                                                draggedCard = newlySelected
-                                                dragPoint = point
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    dragPoint = point
-                                }
-                            } else if isSelectionLocked {
-                                dragPoint = point
-                            }
-                        },
-                        onDragEnded: { point in
-                            dragPoint = point
-                            if isSelectionLocked, let selected = draggedCard {
-                                if transferDropFrame.contains(point) {
-                                    vm.humanTransfer(selected)
-                                } else if defendDropFrame.contains(point) {
-                                    vm.humanDefend(selected)
-                                } else if tableDropFrame.contains(point) {
-                                    vm.humanPlay(selected)
-                                }
-                            }
-                            selectionLockID = UUID()
-                            candidateCard = nil
-                            draggedCard = nil
-                            isSelectionLocked = false
-                        }
+                        isFloating: isSelectionLocked && draggedCard == card
                     )
                     .zIndex(isSelectionLocked && draggedCard == card ? 100 : Double(cards.firstIndex(of: card) ?? 0))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             .padding(.horizontal, 14)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .named("gameBoard"))
+                    .onChanged { value in
+                        handleHandDragChanged(value.location, cards: cards, firstCenter: firstCenter, step: step)
+                    }
+                    .onEnded { value in
+                        handleHandDragEnded(value.location)
+                    }
+            )
             .onAppear { handFrame = proxy.frame(in: .named("gameBoard")) }
             .onChange(of: proxy.size) { _ in handFrame = proxy.frame(in: .named("gameBoard")) }
         }
