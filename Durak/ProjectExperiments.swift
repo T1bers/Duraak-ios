@@ -7,7 +7,7 @@ enum ProjectExperiments {
         var sections = [String]()
         sections.append(sortComparisonCSV())
         sections.append(monteCarloScalingCSV())
-        sections.append(randomOpponentWinRateCSV(games: 500, playoutsPerMove: 5))
+        sections.append(randomOpponentWinRateCSV(games: 500, playoutsPerMove: 2))
         return sections.joined(separator: "\n\n")
     }
 
@@ -46,7 +46,7 @@ enum ProjectExperiments {
             let t0 = DispatchTime.now().uptimeNanoseconds
             let move = MonteCarlo.chooseMove(state: state, player: player,
                                              timeBudget: 86_400, maxPlayouts: count,
-                                             fixedPlayouts: true, maxPlies: 100,
+                                             fixedPlayouts: true, maxPlies: 50,
                                              seed: UInt64(741_852 + count))
             let elapsed = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1_000_000.0
             csv += String(format: "%d,%.6f,%@\n", count, elapsed, String(describing: move))
