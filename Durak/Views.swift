@@ -542,7 +542,6 @@ struct GameView: View {
                         Spacer(minLength: 0)
                         tableArea
                             .frame(height: 100)
-                            .background(tableDropGeometry)
                         Spacer(minLength: 0)
                         HStack(spacing: 6) {
                             statusPill
@@ -559,7 +558,7 @@ struct GameView: View {
                         topBar
                         opponents
                         Spacer(minLength: 0)
-                        tableArea.background(tableDropGeometry)
+                        tableArea
                         Spacer(minLength: 0)
                         statusPill
                         actionButtons
@@ -622,11 +621,13 @@ struct GameView: View {
             Color.clear
                 .onAppear {
                     DispatchQueue.main.async {
-                        tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: -55, dy: -75)
+                        // Restrict table drops to the central playing field;
+                        // the draw and discard piles at the edges are not targets.
+                        tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: 0, dy: -28)
                     }
                 }
                 .onChange(of: proxy.frame(in: .named("gameBoard"))) { frame in
-                    tableDropFrame = frame.insetBy(dx: -55, dy: -75)
+                    tableDropFrame = frame.insetBy(dx: 0, dy: -28)
                 }
         }
     }
@@ -771,7 +772,8 @@ struct GameView: View {
                     })
                 }
             }
-             .frame(width: 196)
+            .frame(width: 196)
+            .background(tableDropGeometry)
 
             Spacer(minLength: 4)
 
