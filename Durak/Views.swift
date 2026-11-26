@@ -414,15 +414,28 @@ private struct DraggableHandCard: View {
     let isFloating: Bool
     let onDragChanged: (CGPoint) -> Void
     let onDragEnded: (CGPoint) -> Void
+    @State private var wobble = false
 
     var body: some View {
         CardView(card: card, width: width)
-            .opacity(isFloating ? 0.12 : 1)
+            .opacity(isFloating ? 0.10 : 1)
+            .offset(y: isFloating ? -18 : 0)
+            .rotationEffect(.degrees(isFloating && wobble ? 1.8 : (isFloating ? -1.8 : 0)))
+            .scaleEffect(isFloating ? 1.08 : 1)
+            .shadow(color: isFloating ? Palette.gold.opacity(0.5) : .clear, radius: 12, y: 5)
+            .contentShape(Rectangle())
             .gesture(
-                DragGesture(minimumDistance: 3, coordinateSpace: .named("gameBoard"))
-                    .onChanged { value in onDragChanged(value.location) }
-                    .onEnded { value in onDragEnded(value.location) }
+                DragGesture(minimumDistance: 0, coordinateSpace: .named("gameBoard"))
+                    .onChanged { value in
+                        if !isFloating { onDragChanged(value.location) }
+                        withAnimation(.linear(duration: 0.12)) { wobble.toggle() }
+                    }
+                    .onEnded { value in
+                        wobble = false
+                        onDragEnded(value.location)
+                    }
             )
+            .animation(.interactiveSpring(response: 0.18, dampingFraction: 0.72), value: isFloating)
     }
 }
 // MARK: - Game view
@@ -581,21 +594,36 @@ struct GameView: View {
         var h = st.hands[0]
         Sorts.mergeSort(&h, key: { st.sortKey($0) })
         let cards = h.toArray()
-                return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: -22) {
-                ForEach(cards, id: \.id) { c in
-                    DraggableHandCard(card: c, width: 68, isFloating: draggedCard == c, onDragChanged: { point in
-                        if draggedCard == nil { draggedCard = c }
-                        dragPoint = point
-                    }, onDragEnded: { point in
-                        dragPoint = point
-                        if tableDropFrame.contains(point) { vm.humanPlay(c) }
-                        draggedCard = nil
-                    })
+
+        return GeometryReader { proxy in
+            let available = max(1, proxy.size.width - 28)
+            let count = max(cards.count, 1)
+            let cardWidth = min(68, max(38, available / (CGFloat(count) * 0.55 + 0.45)))
+            let overlap = cardWidth * 0.55
+
+            HStack(spacing: -overlap) {
+                ForEach(cards, id: \.id) { card in
+                    DraggableHandCard(
+                        card: card,
+                        width: cardWidth,
+                        isFloating: draggedCard == card,
+                        onDragChanged: { point in
+                            draggedCard = card
+                            dragPoint = point
+                        },
+                        onDragEnded: { point in
+                            dragPoint = point
+                            if tableDropFrame.contains(point) { vm.humanPlay(card) }
+                            draggedCard = nil
+                        }
+                    )
+                    .zIndex(draggedCard == card ? 100 : Double(cards.firstIndex(of: card) ?? 0))
                 }
-            }.padding(.horizontal, 26).padding(.top, 17).padding(.bottom, 7)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .padding(.horizontal, 14)
         }
-        .frame(height: 139)
+        .frame(height: 150)
         .background(Glass.panel, in: RoundedRectangle(cornerRadius: 27))
         .overlay(RoundedRectangle(cornerRadius: 27).stroke(Palette.gold.opacity(0.28), lineWidth: 1))
         .shadow(color: Palette.gold.opacity(0.08), radius: 15)
