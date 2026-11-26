@@ -456,7 +456,7 @@ struct GameView: View {
                 tableArea
                     .background(GeometryReader { proxy in
                         Color.clear.onAppear {
-                            tableDropFrame = proxy.frame(in: .global)
+                            tableDropFrame = proxy.frame(in: .global).insetBy(dx: -55, dy: -75)
                         }
                     })
                 Spacer(minLength: 0)
