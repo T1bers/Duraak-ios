@@ -6,6 +6,7 @@ final class GameVM: ObservableObject {
     @Published var thinking = false
     @Published var message = "Your turn"
     @Published var remainingTime = 0
+    @Published private(set) var restartGeneration = 0
 
     private(set) var history = Stack<GameState>()
     let playerCount: Int
@@ -114,6 +115,7 @@ final class GameVM: ObservableObject {
     }
 
     func restart() {
+        restartGeneration += 1
         token += 1
         thinking = false
         history.removeAll()
