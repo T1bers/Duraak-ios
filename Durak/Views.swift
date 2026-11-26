@@ -580,9 +580,10 @@ struct GameView: View {
         HStack {
             Button { onExit() } label: {
                 Label("Menu", systemImage: "line.3.horizontal")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: verticalSizeClass == .compact ? 11 : 14, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .padding(.horizontal, verticalSizeClass == .compact ? 10 : 14)
+                    .padding(.vertical, verticalSizeClass == .compact ? 7 : 10)
                     .background(Glass.panel, in: Capsule())
                     .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
             }
@@ -689,7 +690,7 @@ struct GameView: View {
     private var shouldShowTransferTarget: Bool {
         // Keep the transfer cue visible whenever Transfer Durak is enabled.
         // The move itself is still validated by GameState when the card is dropped.
-        return vm.state.actor == 0 && vm.state.transferEnabled && vm.state.firstUndefended >= 0
+        return vm.state.actor == 0 && !vm.state.defenderTaking && vm.state.transferEnabled && vm.state.firstUndefended >= 0
     }
 
     private var deckView: some View {
