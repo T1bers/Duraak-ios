@@ -495,6 +495,9 @@ struct GameView: View {
     @State private var lastSelectionX: CGFloat = .zero
     @State private var selectionStartPoint: CGPoint = .zero
     @State private var dragPoint: CGPoint = .zero
+    @State private var flyingCard: Card? = nil
+    @State private var flightPosition: CGPoint = .zero
+    @State private var flightID = UUID()
     var onExit: () -> Void
 
     init(players: Int, budget: Double, cheaterMode: Bool, playerTimeout: Int, deckSize: Int, transferEnabled: Bool, drawOnMoveLimit: Bool, throwInScope: ThrowInScope, onExit: @escaping () -> Void) {
@@ -549,6 +552,14 @@ struct GameView: View {
                     .transaction { $0.animation = nil }
                     .allowsHitTesting(false)
                     .zIndex(1000)
+            }
+            if let card = flyingCard {
+                CardView(card: card, width: 68)
+                    .scaleEffect(1.06)
+                    .shadow(color: Palette.gold.opacity(0.32), radius: 12, y: 6)
+                    .position(flightPosition)
+                    .allowsHitTesting(false)
+                    .zIndex(1100)
             }
             if vm.state.over { overlay }
         }
@@ -816,14 +827,37 @@ struct GameView: View {
     private func handleHandDragEnded(_ point: CGPoint) {
         dragPoint = point
         if isSelectionLocked, let selected = draggedCard {
+            let destination: CGPoint
+            let play: () -> Void
+
             if transferDropFrame.contains(point) {
-                vm.humanTransfer(selected)
+                destination = CGPoint(x: transferDropFrame.midX, y: transferDropFrame.midY)
+                play = { vm.humanTransfer(selected) }
             } else if defendDropFrame.contains(point) {
-                vm.humanDefend(selected)
+                destination = CGPoint(x: defendDropFrame.midX, y: defendDropFrame.midY)
+                play = { vm.humanDefend(selected) }
             } else if point.y < handFrame.minY {
-                // Any release above the lower hand panel counts as dropping the
-                // lifted card onto the table; players do not need to hit its center.
-                vm.humanPlay(selected)
+                // Fly the card from the player's hand onto the table before applying the move.
+                destination = CGPoint(x: tableDropFrame.midX, y: tableDropFrame.midY)
+                play = { vm.humanPlay(selected) }
+            } else {
+                destination = point
+                play = {}
+            }
+
+            if destination != point || point.y < handFrame.minY {
+                let id = UUID()
+                flightID = id
+                flyingCard = selected
+                flightPosition = point
+                withAnimation(.easeInOut(duration: 0.24)) {
+                    flightPosition = destination
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+                    guard flightID == id else { return }
+                    play()
+                    flyingCard = nil
+                }
             }
         }
         selectionLockID = UUID()
