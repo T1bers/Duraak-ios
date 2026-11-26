@@ -147,6 +147,13 @@ struct GameState: Sendable {
     func humanThrowInMoves(for player: Int) -> [Move] {
         guard !over, player >= 0, player < playerCount, table.count > 0,
               table.count < roundLimit, eligibleThrowInPlayers.contains(player) else { return [] }
+
+        // During an active defense, eligible attackers may add matching ranks.
+        // Once every attack is covered (or the defender takes), only the player
+        // whose throw-in turn it is may add another card.
+        let mayJoinActiveDefense = !defenderTaking && undefendedCount > 0
+        guard mayJoinActiveDefense || actor == player else { return [] }
+
         return hands[player].toArray().filter { tableRanks.contains($0.rank) }.map { Move.attack($0) }
     }
 
@@ -157,6 +164,11 @@ struct GameState: Sendable {
         table.append(Pair(attack: card, defense: nil))
         tableRanks.increment(card.rank)
         throwInPassed.removeAll()
+        // Keep the throw-in sequence in sync even when a human joins while
+        // another player is defending. Without this, the same player could
+        // incorrectly receive the next turn after the defense finishes.
+        throwInCursor = nextThrowIn(after: player, excluding: throwInPassed)
+        moveCount += 1
         return true
     }
     /// Adds a deliberately illegal off-rank throw-in for the optional cheater mode.
