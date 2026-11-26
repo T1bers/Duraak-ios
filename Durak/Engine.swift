@@ -143,6 +143,22 @@ struct GameState: Sendable {
         return moves
     }
 
+    /// Legal human throw-ins remain available while the defender is responding.
+    func humanThrowInMoves(for player: Int) -> [Move] {
+        guard !over, player >= 0, player < playerCount, table.count > 0,
+              table.count < roundLimit, eligibleThrowInPlayers.contains(player) else { return [] }
+        return hands[player].toArray().filter { tableRanks.contains($0.rank) }.map { Move.attack($0) }
+    }
+
+    @discardableResult
+    mutating func playHumanThrowIn(_ card: Card, by player: Int) -> Bool {
+        guard humanThrowInMoves(for: player).contains(.attack(card)) else { return false }
+        removeFromHand(player, card)
+        table.append(Pair(attack: card, defense: nil))
+        tableRanks.increment(card.rank)
+        throwInPassed.removeAll()
+        return true
+    }
     /// Adds a deliberately illegal off-rank throw-in for the optional cheater mode.
     /// This is kept separate from apply(_:) so normal legal-move validation stays strict.
     @discardableResult
