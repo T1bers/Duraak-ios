@@ -3,7 +3,7 @@ import Foundation
 enum MonteCarlo {
     /// For each legal move plays many random games to the end; picks the best win rate.
     /// Rollouts use a lightweight card-cost policy instead of choosing every move uniformly at random.
-    static func chooseMove(state: GameState, player: Int, timeBudget: Double, maxPlayouts: Int = 4000) -> Move {
+    static func chooseMove(state: GameState, player: Int, timeBudget: Double, maxPlayouts: Int = 4000, fixedPlayouts: Bool = false) -> Move {
         let moves = state.legalMoves()
         if moves.count <= 1 { return moves.first ?? .pass }
 
@@ -36,7 +36,11 @@ enum MonteCarlo {
                 wins[i] += playout(s, me: player, rng: &rng)
             }
             plays += 1
-            if plays >= 5 && DispatchTime.now().uptimeNanoseconds >= deadline { break }
+            if fixedPlayouts {
+                if plays >= maxPlayouts { break }
+            } else if plays >= 5 && DispatchTime.now().uptimeNanoseconds >= deadline {
+                break
+            }
         }
 
         var best = 0
