@@ -733,7 +733,7 @@ struct GameView: View {
             Spacer(minLength: 4)
 
             // Keep the playing field centered and unobstructed by either pile.
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(60), spacing: 2), count: 3), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(64), spacing: 2), count: 3), spacing: 8) {
                 ForEach(0..<vm.state.table.count, id: \.self) { i in
                     let p = vm.state.table[i]
                     ZStack(alignment: .topLeading) {
@@ -771,7 +771,7 @@ struct GameView: View {
                     })
                 }
             }
-            .frame(width: 184)
+             .frame(width: 196)
 
             Spacer(minLength: 4)
 
