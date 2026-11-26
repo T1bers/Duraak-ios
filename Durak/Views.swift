@@ -434,6 +434,8 @@ private struct DraggableHandCard: View {
 struct GameView: View {
     @StateObject private var vm: GameVM
     @State private var tableDropFrame: CGRect = .zero
+    @State private var defendDropFrame: CGRect = .zero
+    @State private var transferDropFrame: CGRect = .zero
     @State private var handFrame: CGRect = .zero
     @State private var draggedCard: Card? = nil
     @State private var dragPoint: CGPoint = .zero
@@ -544,6 +546,20 @@ struct GameView: View {
                     .contentShape(Rectangle())
                     .onTapGesture { vm.challengeCheat(at: i) }
                     .frame(width: 84, height: 104, alignment: .topLeading)
+                    .background(GeometryReader { pairProxy in
+                        Color.clear.onAppear {
+                            if i == vm.state.firstUndefended {
+                                let frame = pairProxy.frame(in: .named("gameBoard"))
+                                defendDropFrame = frame.insetBy(dx: -8, dy: -8)
+                                transferDropFrame = CGRect(
+                                    x: frame.maxX + 2,
+                                    y: frame.minY - 8,
+                                    width: 76,
+                                    height: frame.height + 16
+                                )
+                            }
+                        }
+                    })
                 }
             }
         }
@@ -618,8 +634,14 @@ struct GameView: View {
                         },
                         onDragEnded: { point in
                             dragPoint = point
-                            if let selected = draggedCard, tableDropFrame.contains(point) {
-                                vm.humanPlay(selected)
+                            if let selected = draggedCard {
+                                if transferDropFrame.contains(point) {
+                                    vm.humanTransfer(selected)
+                                } else if defendDropFrame.contains(point) {
+                                    vm.humanDefend(selected)
+                                } else if tableDropFrame.contains(point) {
+                                    vm.humanPlay(selected)
+                                }
                             }
                             draggedCard = nil
                         }
