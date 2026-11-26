@@ -471,14 +471,6 @@ private struct TransferDropTarget: View {
             Image(systemName: "arrow.left.arrow.right")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(.white.opacity(0.95))
-            Text("TRANSFER")
-                .font(.system(size: 6, weight: .bold, design: .rounded))
-                .tracking(0.35)
-                .foregroundColor(.white)
-                .padding(.horizontal, 3)
-                .padding(.vertical, 2)
-                .background(Color.black.opacity(0.48), in: Capsule())
-                .offset(y: 20)
         }
         // Same footprint as a table card (56 × 82), with no gold outline.
         .frame(width: 56, height: 82)
@@ -662,9 +654,11 @@ struct GameView: View {
         guard index == vm.state.firstUndefended else { return }
         defendDropFrame = frame.insetBy(dx: -8, dy: -8)
         // Match the hit area and visual cue to a normal table card.
+        // Place the transfer marker directly beside the attack card,
+        // aligned to the card's top edge (not below the pair).
         transferDropFrame = CGRect(
             x: frame.maxX + 2,
-            y: frame.minY + 11,
+            y: frame.minY,
             width: 56,
             height: 82
         )
@@ -689,7 +683,7 @@ struct GameView: View {
                         if i == vm.state.firstUndefended && shouldShowTransferTarget {
                             TransferDropTarget()
                                 .frame(width: 56, height: 82)
-                                .offset(x: 58, y: 11)
+                                .offset(x: 58, y: 0)
                         }
                     }
                     .background(GeometryReader { pairProxy in
@@ -716,9 +710,17 @@ struct GameView: View {
     }
 
     private var shouldShowTransferTarget: Bool {
-        // Keep the transfer cue visible whenever Transfer Durak is enabled.
-        // The move itself is still validated by GameState when the card is dropped.
-        return vm.state.actor == 0 && !vm.state.defenderTaking && vm.state.transferEnabled && vm.state.firstUndefended >= 0
+        // Show the cue only when the player currently has at least one legal
+        // transfer card. This prevents it appearing after a normal defense or
+        // when a newly thrown-in card cannot actually be transferred.
+        guard vm.state.actor == 0,
+              !vm.state.defenderTaking,
+              vm.state.transferEnabled,
+              vm.state.firstUndefended >= 0 else { return false }
+        return vm.state.legalMoves().contains { move in
+            if case .transfer = move { return true }
+            return false
+        }
     }
 
     private var deckView: some View {
@@ -867,11 +869,16 @@ struct GameView: View {
                 play = { vm.humanTransfer(selected) }
             } else if defendDropFrame.contains(point) {
                 destination = CGPoint(x: defendDropFrame.midX, y: defendDropFrame.midY)
-                // A matching-rank card may be a valid throw-in even though it
-                // cannot beat the card under the finger. Do not route that move
-                // into the defense handler (which would reject it).
+                // On the actual undefended attack card, prefer a legal defense.
+                // If the selected card cannot beat it but is a legal throw-in,
+                // send it through the throw-in path instead.
                 play = canDefend ? { vm.humanDefend(selected) } :
                     (canThrowIn ? { vm.humanPlay(selected) } : { vm.humanDefend(selected) })
+            } else if canThrowIn && tableDropFrame.contains(point) {
+                // Throw-ins are allowed anywhere on the table, including at the
+                // start of a bot's defense turn—not only over the first attack.
+                destination = CGPoint(x: tableDropFrame.midX, y: tableDropFrame.midY)
+                play = { vm.humanPlay(selected) }
             } else if hasMovedAboveHand || point.y < handFrame.minY + 18 {
                 // Register the upward release reliably in portrait layout.
                 destination = CGPoint(x: tableDropFrame.midX, y: tableDropFrame.midY)
