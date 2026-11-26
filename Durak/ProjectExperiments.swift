@@ -7,7 +7,7 @@ enum ProjectExperiments {
         var sections = [String]()
         sections.append(sortComparisonCSV())
         sections.append(monteCarloScalingCSV())
-        sections.append(randomOpponentWinRateCSV(games: 500, playoutsPerMove: 10))
+        sections.append(randomOpponentWinRateCSV(games: 500, playoutsPerMove: 5))
         return sections.joined(separator: "\n\n")
     }
 
@@ -41,12 +41,13 @@ enum ProjectExperiments {
         var rng = FastRNG(seed: 741852)
         let state = GameState.newGame(players: 2, using: &rng)
         let player = state.actor
-        var csv = "MONTE_CARLO_DECISION_SCALING\nplayouts,decision_ms,selected_move\n"
+        var csv = "MONTE_CARLO_DECISION_SCALING\nplayouts_per_move,decision_ms,selected_move\n"
         for count in [10, 100, 1_000, 10_000] {
             let t0 = DispatchTime.now().uptimeNanoseconds
             let move = MonteCarlo.chooseMove(state: state, player: player,
                                              timeBudget: 86_400, maxPlayouts: count,
-                                             fixedPlayouts: true)
+                                             fixedPlayouts: true, maxPlies: 100,
+                                             seed: UInt64(741_852 + count))
             let elapsed = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1_000_000.0
             csv += String(format: "%d,%.6f,%@\n", count, elapsed, String(describing: move))
         }
@@ -58,9 +59,9 @@ enum ProjectExperiments {
         var draws = 0
         var completed = 0
         for game in 0..<games {
+            var steps = 0
             var rng = FastRNG(seed: UInt64(900_000 + game))
             var state = GameState.newGame(players: 2, using: &rng)
-            var steps = 0
             while !state.over && steps < 1_000 {
                 let moves = state.legalMoves()
                 guard !moves.isEmpty else { break }
@@ -69,7 +70,8 @@ enum ProjectExperiments {
                     move = MonteCarlo.chooseMove(state: state, player: 0,
                                                  timeBudget: 86_400,
                                                  maxPlayouts: playoutsPerMove,
-                                                 fixedPlayouts: true)
+                                                 fixedPlayouts: true, maxPlies: 100,
+                                                 seed: UInt64(900_000 + game * 10_000 + steps))
                 } else {
                     move = moves[Int.random(in: 0..<moves.count, using: &rng)]
                 }
