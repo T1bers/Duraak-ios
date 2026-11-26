@@ -34,6 +34,9 @@ struct GameState: Sendable {
     var throwInScope: ThrowInScope = .neighbors
     var throwInPassed: Set<Int> = []
     var throwInCursor: Int? = nil
+    // Players already involved in the current transfer chain. The original
+    // attacker must not receive their own attack back through a transfer loop.
+    var transferVisited: Set<Int> = []
     // A hidden illegal throw-in can be challenged by the human player.
     var cheatingPlayer: Int? = nil
     var cheatingTableIndex: Int? = nil
@@ -121,7 +124,7 @@ struct GameState: Sendable {
             if transferEnabled, order.count > 2, table.count < roundLimit {
                 let nextDefender = order[2]
                 let transferRank = attack.rank
-                if hands[nextDefender].count >= table.count + 1 {
+                if !transferVisited.contains(nextDefender), hands[nextDefender].count >= table.count + 1 {
                     for card in hands[current] where card.rank == transferRank {
                         moves.append(.transfer(card))
                     }
@@ -225,6 +228,7 @@ struct GameState: Sendable {
         switch move {
         case .attack(let card):
             let playingPlayer = actor
+            if table.isEmpty { transferVisited = [playingPlayer] }
             removeFromHand(playingPlayer, card)
             table.append(Pair(attack: card, defense: nil))
             tableRanks.increment(card.rank)
@@ -236,6 +240,7 @@ struct GameState: Sendable {
             tableRanks.increment(card.rank)
         case .transfer(let card):
             let oldDefender = defender
+            transferVisited.insert(oldDefender)
             removeFromHand(oldDefender, card)
             table.append(Pair(attack: card, defense: nil))
             tableRanks.increment(card.rank)
@@ -288,6 +293,7 @@ struct GameState: Sendable {
 
         table.removeAll()
         tableRanks = HashTable()
+        transferVisited.removeAll()
         cheatingPlayer = nil
         cheatingTableIndex = nil
         defenderTaking = false
