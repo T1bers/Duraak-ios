@@ -463,26 +463,25 @@ private struct DraggableHandCard: View {
 private struct TransferDropTarget: View {
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 9).fill(Color.clear)
-            RoundedRectangle(cornerRadius: 9).stroke(Palette.gold.opacity(0.98), lineWidth: 3)
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.white.opacity(0.78), style: StrokeStyle(lineWidth: 1.2, dash: [4, 3]))
-                .padding(5)
+            RoundedRectangle(cornerRadius: 7)
+                .fill(Color.black.opacity(0.12))
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(Color.white.opacity(0.72), lineWidth: 1.4)
+                .padding(3)
             Image(systemName: "arrow.left.arrow.right")
-                .font(.system(size: 29, weight: .black))
-                .foregroundColor(Palette.gold)
-                .shadow(color: .black.opacity(0.7), radius: 3, y: 1)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(.white.opacity(0.95))
             Text("TRANSFER")
-                .font(.system(size: 7, weight: .black, design: .rounded))
-                .tracking(0.7)
+                .font(.system(size: 6, weight: .bold, design: .rounded))
+                .tracking(0.35)
                 .foregroundColor(.white)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 3)
-                .background(Color.black.opacity(0.58), in: Capsule())
-                .offset(y: 27)
+                .padding(.horizontal, 3)
+                .padding(.vertical, 2)
+                .background(Color.black.opacity(0.48), in: Capsule())
+                .offset(y: 20)
         }
-        .frame(width: 64, height: 104)
-        .shadow(color: Palette.gold.opacity(0.3), radius: 5, y: 2)
+        // Same footprint as a table card (56 × 82), with no gold outline.
+        .frame(width: 56, height: 82)
         .allowsHitTesting(false)
     }
 }
@@ -578,10 +577,12 @@ struct GameView: View {
         GeometryReader { proxy in
             Color.clear
                 .onAppear {
-                    tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: -55, dy: -75)
+                    DispatchQueue.main.async {
+                        tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: -55, dy: -75)
+                    }
                 }
-                .onChange(of: proxy.size) { _ in
-                    tableDropFrame = proxy.frame(in: .named("gameBoard")).insetBy(dx: -55, dy: -75)
+                .onChange(of: proxy.frame(in: .named("gameBoard"))) { frame in
+                    tableDropFrame = frame.insetBy(dx: -55, dy: -75)
                 }
         }
     }
@@ -660,13 +661,12 @@ struct GameView: View {
     private func updatePairDropFrames(index: Int, frame: CGRect) {
         guard index == vm.state.firstUndefended else { return }
         defendDropFrame = frame.insetBy(dx: -8, dy: -8)
-        // Match the hit area to the visible transfer card, which is drawn
-        // 66 points to the right of the attacking card.
+        // Match the hit area and visual cue to a normal table card.
         transferDropFrame = CGRect(
-            x: frame.maxX + 66,
-            y: frame.minY,
-            width: 64,
-            height: 104
+            x: frame.maxX + 58,
+            y: frame.minY + 11,
+            width: 56,
+            height: 82
         )
     }
 
@@ -688,13 +688,20 @@ struct GameView: View {
                     .overlay(alignment: .trailing) {
                         if i == vm.state.firstUndefended && shouldShowTransferTarget {
                             TransferDropTarget()
-                                .frame(width: 64, height: 104)
-                                .offset(x: 66)
+                                .frame(width: 56, height: 82)
+                                .offset(x: 58, y: 11)
                         }
                     }
                     .background(GeometryReader { pairProxy in
                         Color.clear
-                            .onAppear { updatePairDropFrames(index: i, frame: pairProxy.frame(in: .named("gameBoard"))) }
+                            .onAppear {
+                                DispatchQueue.main.async {
+                                    updatePairDropFrames(index: i, frame: pairProxy.frame(in: .named("gameBoard")))
+                                }
+                            }
+                            .onChange(of: pairProxy.frame(in: .named("gameBoard"))) { frame in
+                                updatePairDropFrames(index: i, frame: frame)
+                            }
                             .onChange(of: vm.state.firstUndefended) { _ in
                                 updatePairDropFrames(index: i, frame: pairProxy.frame(in: .named("gameBoard")))
                             }
@@ -945,8 +952,14 @@ struct GameView: View {
                         handleHandDragEnded(value.location)
                     }
             )
-            .onAppear { handFrame = proxy.frame(in: .named("gameBoard")) }
-            .onChange(of: proxy.size) { _ in handFrame = proxy.frame(in: .named("gameBoard")) }
+            .onAppear {
+                DispatchQueue.main.async {
+                    handFrame = proxy.frame(in: .named("gameBoard"))
+                }
+            }
+            .onChange(of: proxy.frame(in: .named("gameBoard"))) { frame in
+                handFrame = frame
+            }
         }
         .frame(height: isLandscape ? 96 : 150)
         .background(Glass.panel, in: RoundedRectangle(cornerRadius: 27))
