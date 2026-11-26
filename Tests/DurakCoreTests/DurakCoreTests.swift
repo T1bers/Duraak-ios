@@ -168,6 +168,26 @@ final class DurakCoreTests: XCTestCase {
         XCTAssertEqual(state.table.count, 2)
     }
 
+    func testTransferCannotReturnAttackToOriginalAttacker() {
+        var queue = CircularQueue<Int>(capacity: 3)
+        queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
+        let hands = [
+            DynamicArray<Card>([Card(id: 0), Card(id: 3), Card(id: 4)]),
+            DynamicArray<Card>([Card(id: 9), Card(id: 10)]),
+            DynamicArray<Card>([Card(id: 18), Card(id: 19)])
+        ]
+        var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts,
+                              order: queue, transferEnabled: true)
+
+        state.apply(.attack(Card(id: 0)))
+        state.apply(.transfer(Card(id: 9)))
+
+        XCTAssertEqual(state.defender, 2, "The transferred attack must move to the next player.")
+        XCTAssertEqual(state.actor, 2)
+        XCTAssertFalse(state.legalMoves().contains(.transfer(Card(id: 18))),
+                       "The next player must not be able to send the attack back to its original attacker.")
+    }
+
     func testTwentyFourCardDeckUsesNineThroughAce() {
         var rng = FastRNG(seed: 2400)
         let state = GameState.newGame(players: 3, deckSize: 24, using: &rng)
