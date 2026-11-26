@@ -407,6 +407,33 @@ struct CardView: View {
     }
 }
 
+// Pull a card upward onto the table, like playing with physical cards.
+private struct DraggableHandCard: View {
+    let card: Card
+    let width: CGFloat
+    let onPlay: () -> Void
+    @GestureState private var dragOffset: CGSize = .zero
+    @State private var isDragging = false
+
+    var body: some View {
+        CardView(card: card, width: width)
+            .offset(y: dragOffset.height)
+            .scaleEffect(isDragging ? 1.06 : 1.0)
+            .zIndex(isDragging ? 10 : 0)
+            .gesture(
+                DragGesture(minimumDistance: 5)
+                    .updating($dragOffset) { value, state, _ in
+                        state = value.translation
+                    }
+                    .onChanged { _ in isDragging = true }
+                    .onEnded { value in
+                        isDragging = false
+                        if value.translation.height < -35 { onPlay() }
+                    }
+            )
+            .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isDragging)
+    }
+}
 // MARK: - Game view
 struct GameView: View {
     @StateObject private var vm: GameVM
