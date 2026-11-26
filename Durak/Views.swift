@@ -660,8 +660,10 @@ struct GameView: View {
     private func updatePairDropFrames(index: Int, frame: CGRect) {
         guard index == vm.state.firstUndefended else { return }
         defendDropFrame = frame.insetBy(dx: -8, dy: -8)
+        // Match the hit area to the visible transfer card, which is drawn
+        // 66 points to the right of the attacking card.
         transferDropFrame = CGRect(
-            x: frame.maxX + 34,
+            x: frame.maxX + 66,
             y: frame.minY,
             width: 64,
             height: 104
@@ -843,7 +845,14 @@ struct GameView: View {
             let destination: CGPoint
             let play: () -> Void
 
-            if transferDropFrame.contains(point) {
+            let transferIsLegal = vm.state.legalMoves().contains(.transfer(selected))
+            let releasedBesideAttack = point.x >= defendDropFrame.maxX &&
+                abs(point.y - defendDropFrame.midY) <= 82
+
+            // Accept the visible transfer card and the adjacent drop zone. The
+            // extra legal-move check prevents an ordinary defense from becoming
+            // an accidental transfer.
+            if transferIsLegal && (transferDropFrame.contains(point) || releasedBesideAttack) {
                 destination = CGPoint(x: transferDropFrame.midX, y: transferDropFrame.midY)
                 play = { vm.humanTransfer(selected) }
             } else if defendDropFrame.contains(point) {
