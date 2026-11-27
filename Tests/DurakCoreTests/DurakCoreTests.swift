@@ -168,6 +168,30 @@ final class DurakCoreTests: XCTestCase {
         XCTAssertEqual(state.table.count, 2)
     }
 
+    func testDefenderCannotTransferAfterBeatingEarlierCardWhenAnotherIsThrownIn() {
+        var queue = CircularQueue<Int>(capacity: 4)
+        queue.enqueue(2); queue.enqueue(3); queue.enqueue(0); queue.enqueue(1)
+        let hands = [
+            DynamicArray<Card>([Card(id: 18), Card(id: 19)]),
+            DynamicArray<Card>([Card(id: 30), Card(id: 31)]),
+            DynamicArray<Card>([Card(id: 0), Card(id: 20)]),
+            DynamicArray<Card>([Card(id: 2), Card(id: 9), Card(id: 21)])
+        ]
+        var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts,
+                              order: queue, transferEnabled: true)
+
+        // Player 2 attacks player 3. Player 3 beats it, then player 0 throws in.
+        state.apply(.attack(Card(id: 0)))
+        state.apply(.defend(0, Card(id: 2)))
+        XCTAssertTrue(state.humanThrowInMoves(for: 0).contains(.attack(Card(id: 18))))
+        XCTAssertTrue(state.playHumanThrowIn(Card(id: 18), by: 0))
+
+        // Because the defender has already beaten a card this round, it may
+        // defend the new attack or take the pile, but cannot transfer it.
+        XCTAssertEqual(state.actor, 3)
+        XCTAssertFalse(state.legalMoves().contains(.transfer(Card(id: 9))))
+    }
+
     func testFourPlayerTransferMovesClockwiseThroughAllFourPlayers() {
         var queue = CircularQueue<Int>(capacity: 4)
         queue.enqueue(3); queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
