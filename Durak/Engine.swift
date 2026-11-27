@@ -338,12 +338,12 @@ struct GameState: Sendable {
         }
     }
 
-    static func newGame(players: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors) -> GameState {
+    static func newGame(players: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors, startingPlayer: Int? = nil) -> GameState {
         var rng = SystemRandomNumberGenerator()
-        return newGame(players: players, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope, using: &rng)
+        return newGame(players: players, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope, startingPlayer: startingPlayer, using: &rng)
     }
 
-    static func newGame<G: RandomNumberGenerator>(players n: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors, using rng: inout G) -> GameState {
+    static func newGame<G: RandomNumberGenerator>(players n: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors, startingPlayer: Int? = nil, using rng: inout G) -> GameState {
         precondition((2...4).contains(n), "Durak supports 2–4 players")
         precondition(deckSize == 24 || deckSize == 36, "Deck size must be 24 or 36")
         var deck = DynamicArray<Card>()
@@ -356,15 +356,10 @@ struct GameState: Sendable {
             for player in 0..<n { hands[player].append(deck.removeLast()) }
         }
 
-        var first = -1
-        var lowestTrump = 99
-        for player in 0..<n {
-            for card in hands[player] where card.suit == trump && card.rank < lowestTrump {
-                lowestTrump = card.rank
-                first = player
-            }
-        }
-        if first < 0 { first = Int.random(in: 0..<n, using: &rng) }
+        // The opening player is random unless a replay supplies the player
+        // who sits immediately after the previous round's Durak.
+        let first = startingPlayer.map { (($0 % n) + n) % n }
+            ?? Int.random(in: 0..<n, using: &rng)
 
         var order = CircularQueue<Int>(capacity: n)
         for offset in 0..<n { order.enqueue((first + offset) % n) }
