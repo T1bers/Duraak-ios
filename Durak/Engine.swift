@@ -1,10 +1,13 @@
 import Foundation
 
+enum ThrowInScope: String, Sendable, Hashable { case neighbors, all }
+
 enum Move: Equatable, Sendable {
     case attack(Card)
-    case defend(Int, Card)   // index of the attack on the table
-    case take                // defender takes the cards
-    case pass                // attacker ends the round ("бито" / let the defender take)
+    case defend(Int, Card)
+    case transfer(Card)
+    case take
+    case pass
 }
 
 struct Pair: Sendable {
@@ -14,22 +17,41 @@ struct Pair: Sendable {
 
 struct GameState: Sendable {
     var hands: [DynamicArray<Card>]
-    var deck: DynamicArray<Card>          // deck[0] = face-up trump card, drawn last
+    var deck: DynamicArray<Card>
     var trump: Suit
     var table = DynamicArray<Pair>()
     var tableRanks = HashTable()
     var discard = Stack<Card>()
-    var order: CircularQueue<Int>         // front = attacker, next = defender
+    var order: CircularQueue<Int>
     var defenderTaking = false
     var roundLimit = 6
+    var moveCount = 0
     var over = false
     var durak: Int? = nil
+    var deckSize: Int = 36
+    var transferEnabled: Bool = false
+    var drawOnMoveLimit: Bool = true
+    var throwInScope: ThrowInScope = .neighbors
+    var throwInPassed: Set<Int> = []
+    var throwInCursor: Int? = nil
+    // Players already involved in the current transfer chain. The original
+    // attacker must not receive their own attack back through a transfer loop.
+    var transferVisited: Set<Int> = []
+    // A hidden illegal throw-in can be challenged by the human player.
+    var cheatingPlayer: Int? = nil
+    var cheatingTableIndex: Int? = nil
 
-    init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>) {
+    init(hands: [DynamicArray<Card>], deck: DynamicArray<Card>, trump: Suit, order: CircularQueue<Int>, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors) {
+        precondition((2...4).contains(hands.count), "Durak supports 2–4 players")
         self.hands = hands
         self.deck = deck
         self.trump = trump
         self.order = order
+        self.deckSize = deckSize
+        self.transferEnabled = transferEnabled
+        self.drawOnMoveLimit = drawOnMoveLimit
+        self.throwInScope = throwInScope
+        self.throwInCursor = order[0]
         self.roundLimit = min(6, hands[order[1]].count)
     }
 
@@ -50,99 +72,261 @@ struct GameState: Sendable {
 
     var actor: Int {
         if over { return -1 }
-        if defenderTaking { return attacker }
-        return undefendedCount > 0 ? defender : attacker
+        if !defenderTaking && undefendedCount > 0 { return defender }
+        if table.count > 0 { return throwInCursor ?? attacker }
+        return attacker
     }
 
-    func beats(_ c: Card, _ a: Card) -> Bool {
-        if c.suit == a.suit { return c.rank > a.rank }
-        return c.suit == trump && a.suit != trump
+    private var eligibleThrowInPlayers: [Int] {
+        guard order.count >= 2 else { return [] }
+        if throwInScope == .all {
+            return (0..<order.count).map { order[$0] }.filter { $0 != defender }
+        }
+        let next = order.count > 2 ? order[2] : attacker
+        return Array(Set([attacker, next])).filter { $0 != defender }
     }
 
-    /// Sort key 0...35: non-trump suits first, trumps last, then by rank
-    func sortKey(_ c: Card) -> Int {
-        let g = c.suit == trump ? 3 : (c.suit.rawValue < trump.rawValue ? c.suit.rawValue : c.suit.rawValue - 1)
-        return g * 9 + (c.rank - 6)
+    private func nextThrowIn(after player: Int, excluding passed: Set<Int>) -> Int? {
+        guard order.count > 0 else { return nil }
+        var position = 0
+        for i in 0..<order.count where order[i] == player { position = i; break }
+        for offset in 1...order.count {
+            let candidate = order[(position + offset) % order.count]
+            if eligibleThrowInPlayers.contains(candidate) && !passed.contains(candidate) { return candidate }
+        }
+        return nil
+    }
+
+    func beats(_ card: Card, _ attack: Card) -> Bool {
+        if card.suit == attack.suit { return card.rank > attack.rank }
+        return card.suit == trump && attack.suit != trump
+    }
+
+    /// Sort key 0...35: non-trump suits first, trump suit last, ranks ascending.
+    func sortKey(_ card: Card) -> Int {
+        let group = card.suit == trump ? 3 : (card.suit.rawValue < trump.rawValue ? card.suit.rawValue : card.suit.rawValue - 1)
+        return group * 9 + (card.rank - 6)
     }
 
     func legalMoves() -> [Move] {
-        if over { return [] }
+        guard !over, order.count >= 2 else { return [] }
         var moves = [Move]()
-        let a = attacker, d = defender
-        if actor == d {
-            let idx = firstUndefended
-            let atk = table[idx].attack
-            for c in hands[d] where beats(c, atk) { moves.append(.defend(idx, c)) }
-            moves.append(.take)
-        } else {
-            if table.count == 0 {
-                for c in hands[a] { moves.append(.attack(c)) }
-            } else {
-                if table.count < roundLimit {
-                    for c in hands[a] where tableRanks.contains(c.rank) { moves.append(.attack(c)) }
-                }
-                moves.append(.pass)
+        let current = actor
+
+        if !defenderTaking && current == defender && undefendedCount > 0 {
+            let index = firstUndefended
+            guard index >= 0 else { return [] }
+            let attack = table[index].attack
+            for card in hands[current] where beats(card, attack) {
+                moves.append(.defend(index, card))
             }
+            // Transfer Durak: pass the attack to the next player with a same-rank card.
+            if transferEnabled, order.count > 2, table.count < roundLimit,
+               table.toArray().allSatisfy({ $0.defense == nil }) {
+                let nextDefender = order[2]
+                let transferRank = attack.rank
+                if !transferVisited.contains(nextDefender), hands[nextDefender].count >= table.count + 1 {
+                    for card in hands[current] where card.rank == transferRank {
+                        moves.append(.transfer(card))
+                    }
+                }
+            }
+            moves.append(.take)
+        } else if table.count == 0 {
+            if current == attacker {
+                for card in hands[current] { moves.append(.attack(card)) }
+            }
+        } else {
+            if eligibleThrowInPlayers.contains(current), table.count < roundLimit {
+                for card in hands[current] where tableRanks.contains(card.rank) {
+                    moves.append(.attack(card))
+                }
+            }
+            moves.append(.pass)
         }
         return moves
     }
 
-    private mutating func removeFromHand(_ p: Int, _ c: Card) {
-        for i in 0..<hands[p].count where hands[p][i] == c {
-            hands[p].remove(at: i)
+    /// Legal human throw-ins remain available while the defender is responding.
+    func humanThrowInMoves(for player: Int) -> [Move] {
+        guard !over, player >= 0, player < playerCount, table.count > 0,
+              table.count < roundLimit, eligibleThrowInPlayers.contains(player) else { return [] }
+
+        // During an active defense, eligible attackers may add matching ranks.
+        // Once every attack is covered (or the defender takes), only the player
+        // whose throw-in turn it is may add another card.
+        let mayJoinActiveDefense = !defenderTaking && undefendedCount > 0
+        guard mayJoinActiveDefense || actor == player else { return [] }
+
+        return hands[player].toArray().filter { tableRanks.contains($0.rank) }.map { Move.attack($0) }
+    }
+
+    @discardableResult
+    mutating func playHumanThrowIn(_ card: Card, by player: Int) -> Bool {
+        guard humanThrowInMoves(for: player).contains(.attack(card)) else { return false }
+        removeFromHand(player, card)
+        table.append(Pair(attack: card, defense: nil))
+        tableRanks.increment(card.rank)
+        throwInPassed.removeAll()
+        // Keep the throw-in sequence in sync even when a human joins while
+        // another player is defending. Without this, the same player could
+        // incorrectly receive the next turn after the defense finishes.
+        throwInCursor = nextThrowIn(after: player, excluding: throwInPassed)
+        moveCount += 1
+        return true
+    }
+    /// Adds a deliberately illegal off-rank throw-in for the optional cheater mode.
+    /// This is kept separate from apply(_:) so normal legal-move validation stays strict.
+    @discardableResult
+    mutating func playCheat(_ card: Card, by player: Int) -> Bool {
+        guard !over,
+              player >= 0, player < playerCount,
+              player == actor,
+              table.count > 0, table.count < roundLimit,
+              eligibleThrowInPlayers.contains(player),
+              !tableRanks.contains(card.rank),
+              cheatingPlayer == nil,
+              hands[player].toArray().contains(card) else { return false }
+
+        removeFromHand(player, card)
+        table.append(Pair(attack: card, defense: nil))
+        tableRanks.increment(card.rank)
+        cheatingPlayer = player
+        cheatingTableIndex = table.count - 1
+        throwInPassed.removeAll()
+        return true
+    }
+
+    /// Removes the challenged illegal card from the table and returns it to its owner.
+    @discardableResult
+    mutating func challengeCheat() -> Bool {
+        guard let player = cheatingPlayer,
+              let index = cheatingTableIndex,
+              player >= 0, player < playerCount,
+              index >= 0, index < table.count else { return false }
+
+        let pair = table.remove(at: index)
+        hands[player].append(pair.attack)
+        if let count = tableRanks.get(pair.attack.rank) {
+            if count <= 1 { _ = tableRanks.remove(pair.attack.rank) }
+            else { tableRanks.set(pair.attack.rank, count - 1) }
+        }
+        cheatingPlayer = nil
+        cheatingTableIndex = nil
+        return true
+    }
+
+    private mutating func removeFromHand(_ player: Int, _ card: Card) {
+        for i in 0..<hands[player].count where hands[player][i] == card {
+            hands[player].remove(at: i)
             return
         }
     }
 
-    mutating func apply(_ m: Move) {
-        switch m {
-        case .attack(let c):
-            removeFromHand(attacker, c)
-            table.append(Pair(attack: c, defense: nil))
-            tableRanks.increment(c.rank)
-        case .defend(let idx, let c):
-            removeFromHand(defender, c)
-            table[idx].defense = c
-            tableRanks.increment(c.rank)
+    mutating func apply(_ move: Move) {
+        guard !over, legalMoves().contains(move) else { return }
+        moveCount += 1
+        switch move {
+        case .attack(let card):
+            let playingPlayer = actor
+            if table.isEmpty { transferVisited.removeAll() }
+            removeFromHand(playingPlayer, card)
+            table.append(Pair(attack: card, defense: nil))
+            tableRanks.increment(card.rank)
+            throwInPassed.removeAll()
+            throwInCursor = nextThrowIn(after: playingPlayer, excluding: throwInPassed)
+        case .defend(let index, let card):
+            removeFromHand(defender, card)
+            table[index].defense = card
+            tableRanks.increment(card.rank)
+        case .transfer(let card):
+            let oldDefender = defender
+            transferVisited.insert(oldDefender)
+            removeFromHand(oldDefender, card)
+            table.append(Pair(attack: card, defense: nil))
+            tableRanks.increment(card.rank)
+            order.rotate(by: 1)
+            roundLimit = min(6, hands[order[1]].count)
+            throwInPassed.removeAll()
+            throwInCursor = attacker
+            defenderTaking = false
         case .take:
             defenderTaking = true
         case .pass:
-            finishRound()
+            let passingPlayer = actor
+            throwInPassed.insert(passingPlayer)
+            if let next = nextThrowIn(after: passingPlayer, excluding: throwInPassed) {
+                throwInCursor = next
+            } else {
+                finishRound()
+            }
+        }
+        // A hard cap turns pathological card-transfer cycles into a draw.
+        if moveCount >= 1_000 && !over {
+            over = true
+            if drawOnMoveLimit {
+                durak = nil
+            } else {
+                var lastPlayer = 0
+                for player in 1..<playerCount where hands[player].count > hands[lastPlayer].count {
+                    lastPlayer = player
+                }
+                durak = lastPlayer
+            }
         }
     }
 
     private mutating func finishRound() {
         let defended = !defenderTaking
-        let a = attacker, d = defender
+        let oldAttacker = attacker
+        let oldDefender = defender
+
         for i in 0..<table.count {
-            let p = table[i]
+            let pair = table[i]
             if defended {
-                discard.push(p.attack)
-                if let df = p.defense { discard.push(df) }
+                discard.push(pair.attack)
+                if let defense = pair.defense { discard.push(defense) }
             } else {
-                hands[d].append(p.attack)
-                if let df = p.defense { hands[d].append(df) }
+                hands[oldDefender].append(pair.attack)
+                if let defense = pair.defense { hands[oldDefender].append(defense) }
             }
         }
+
         table.removeAll()
         tableRanks = HashTable()
+        transferVisited.removeAll()
+        cheatingPlayer = nil
+        cheatingTableIndex = nil
         defenderTaking = false
 
-        // draw: attacker first, defender last
-        var drawOrder = [a]
-        for i in stride(from: 2, to: order.count, by: 1) { drawOrder.append(order[i]) }
-        drawOrder.append(d)
-        for p in drawOrder {
-            while hands[p].count < 6 && !deck.isEmpty {
-                hands[p].append(deck.removeLast())
+        // The attacker draws first; the defender draws last.
+        var drawOrder = [oldAttacker]
+        if order.count > 2 {
+            for i in 2..<order.count { drawOrder.append(order[i]) }
+        }
+        drawOrder.append(oldDefender)
+
+        for player in drawOrder {
+            while hands[player].count < 6 && !deck.isEmpty {
+                hands[player].append(deck.removeLast())
             }
         }
 
+        // If defended, defender attacks next. If cards were taken, the next
+        // player after the defender attacks.
         order.rotate(by: defended ? 1 : 2)
+        throwInPassed.removeAll()
+        throwInCursor = attacker
 
         if deck.isEmpty {
-            for p in 0..<playerCount where hands[p].isEmpty && order.contains(p) {
-                order.remove(p)
+            let activePlayers = (0..<playerCount).filter { !hands[$0].isEmpty }
+            for player in 0..<playerCount where hands[player].isEmpty {
+                order.remove(player)
+            }
+            if activePlayers.count <= 1 {
+                over = true
+                durak = activePlayers.first
+                return
             }
         }
 
@@ -150,31 +334,36 @@ struct GameState: Sendable {
             over = true
             durak = order.count == 1 ? order[0] : nil
         } else {
-            roundLimit = min(6, hands[defender].count)
+            roundLimit = min(6, hands[order[1]].count)
+            throwInCursor = attacker
         }
     }
 
-    static func newGame(players n: Int) -> GameState {
+    static func newGame(players: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors, startingPlayer: Int? = nil) -> GameState {
         var rng = SystemRandomNumberGenerator()
+        return newGame(players: players, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope, startingPlayer: startingPlayer, using: &rng)
+    }
+
+    static func newGame<G: RandomNumberGenerator>(players n: Int, deckSize: Int = 36, transferEnabled: Bool = false, drawOnMoveLimit: Bool = true, throwInScope: ThrowInScope = .neighbors, startingPlayer: Int? = nil, using rng: inout G) -> GameState {
+        precondition((2...4).contains(n), "Durak supports 2–4 players")
+        precondition(deckSize == 24 || deckSize == 36, "Deck size must be 24 or 36")
         var deck = DynamicArray<Card>()
-        for id in 0..<36 { deck.append(Card(id: id)) }
+        for id in 0..<deckSize { deck.append(Card(id: id, deckSize: deckSize)) }
         Sorts.fisherYates(&deck, using: &rng)
+
         let trump = deck[0].suit
         var hands = [DynamicArray<Card>](repeating: DynamicArray<Card>(), count: n)
         for _ in 0..<6 {
-            for p in 0..<n { hands[p].append(deck.removeLast()) }
+            for player in 0..<n { hands[player].append(deck.removeLast()) }
         }
-        var first = -1
-        var best = 99
-        for p in 0..<n {
-            for c in hands[p] where c.suit == trump && c.rank < best {
-                best = c.rank
-                first = p
-            }
-        }
-        if first < 0 { first = Int.random(in: 0..<n, using: &rng) }
+
+        // The opening player is random unless a replay supplies the player
+        // who sits immediately after the previous round's Durak.
+        let first = startingPlayer.map { (($0 % n) + n) % n }
+            ?? Int.random(in: 0..<n, using: &rng)
+
         var order = CircularQueue<Int>(capacity: n)
-        for k in 0..<n { order.enqueue((first + k) % n) }
-        return GameState(hands: hands, deck: deck, trump: trump, order: order)
+        for offset in 0..<n { order.enqueue((first + offset) % n) }
+        return GameState(hands: hands, deck: deck, trump: trump, order: order, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope)
     }
 }

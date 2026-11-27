@@ -1,18 +1,28 @@
-name: Build unsigned IPA
+name: Test and build unsigned iOS IPA
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+
 jobs:
-  build:
+  test-and-build:
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
+      - name: Run core tests, 10,000-game simulation, and proposal experiments
+        run: swift test
+
       - name: Install XcodeGen
         run: brew install xcodegen
+
       - name: Generate Xcode project
         run: xcodegen generate
-      - name: Build (no signing)
+
+      - name: Build unsigned iOS app and package IPA
         run: |
           xcodebuild -project Durak.xcodeproj -scheme Durak -configuration Release \
             -sdk iphoneos -derivedDataPath build \
@@ -20,7 +30,10 @@ jobs:
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Durak.app Payload/
           zip -r Durak.ipa Payload
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
         with:
           name: Durak-unsigned-ipa
           path: Durak.ipa
+          if-no-files-found: error
