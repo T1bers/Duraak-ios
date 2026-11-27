@@ -172,15 +172,15 @@ final class DurakCoreTests: XCTestCase {
         var queue = CircularQueue<Int>(capacity: 4)
         queue.enqueue(3); queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
         let hands = [
-            DynamicArray<Card>([Card(id: 0), Card(id: 3), Card(id: 4)]),
-            DynamicArray<Card>([Card(id: 9), Card(id: 10), Card(id: 11)]),
-            DynamicArray<Card>([Card(id: 18), Card(id: 19), Card(id: 20)]),
-            DynamicArray<Card>([Card(id: 27), Card(id: 28), Card(id: 29)])
+            DynamicArray<Card>([Card(id: 9), Card(id: 3), Card(id: 4)]),
+            DynamicArray<Card>([Card(id: 18), Card(id: 12), Card(id: 13)]),
+            DynamicArray<Card>([Card(id: 27), Card(id: 21), Card(id: 22)]),
+            DynamicArray<Card>([Card(id: 0), Card(id: 30), Card(id: 31), Card(id: 32)])
         ]
         var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts,
                               order: queue, transferEnabled: true)
 
-        // Player 3 attacks player 0. The attack then moves clockwise to 1, 2, and 3.
+        // Player 3 attacks player 0. Each defender transfers once, moving the attack clockwise to player 3.
         state.apply(.attack(Card(id: 0)))
         XCTAssertTrue(state.legalMoves().contains(.transfer(Card(id: 9))))
         state.apply(.transfer(Card(id: 9)))
@@ -194,6 +194,10 @@ final class DurakCoreTests: XCTestCase {
         state.apply(.transfer(Card(id: 27)))
         XCTAssertEqual(state.defender, 3)
         XCTAssertEqual(state.actor, 3)
+        XCTAssertFalse(state.legalMoves().contains { move in
+            if case .transfer = move { return true }
+            return false
+        })
         XCTAssertTrue(state.transferVisited.contains(0))
         XCTAssertTrue(state.transferVisited.contains(1))
         XCTAssertTrue(state.transferVisited.contains(2))
