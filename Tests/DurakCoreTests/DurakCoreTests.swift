@@ -168,7 +168,7 @@ final class DurakCoreTests: XCTestCase {
         XCTAssertEqual(state.table.count, 2)
     }
 
-    func testFourPlayerTransferMovesClockwiseAndCannotReturnToPreviousDefender() {
+    func testFourPlayerTransferMovesClockwiseThroughAllFourPlayers() {
         var queue = CircularQueue<Int>(capacity: 4)
         queue.enqueue(3); queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
         let hands = [
@@ -180,7 +180,7 @@ final class DurakCoreTests: XCTestCase {
         var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts,
                               order: queue, transferEnabled: true)
 
-        // Player 3 attacks player 0. Transfers must then move to 1, 2, and 3.
+        // Player 3 attacks player 0. The attack then moves clockwise to 1, 2, and 3.
         state.apply(.attack(Card(id: 0)))
         XCTAssertTrue(state.legalMoves().contains(.transfer(Card(id: 9))))
         state.apply(.transfer(Card(id: 9)))
@@ -190,14 +190,14 @@ final class DurakCoreTests: XCTestCase {
         state.apply(.transfer(Card(id: 18)))
         XCTAssertEqual(state.defender, 2)
 
-        // The original attacker (3) is a valid next defender in a four-player chain.
-        XCTAssertTrue(state.legalMoves().contains(.transfer(Card(id: 27)))
-                      == false, "Player 3's card is not a transfer card for player 2 unless its rank matches.")
+        XCTAssertTrue(state.legalMoves().contains(.transfer(Card(id: 27))))
+        state.apply(.transfer(Card(id: 27)))
         XCTAssertEqual(state.defender, 3)
-        XCTAssertFalse(state.transferVisited.contains(3) == false,
-                       "The original attacker should be marked as visited only after becoming a defender.")
-        XCTAssertFalse(state.legalMoves().contains(.transfer(Card(id: 3))),
-                       "Player 3 must not be able to transfer the attack back to player 0, who already transferred.");
+        XCTAssertEqual(state.actor, 3)
+        XCTAssertTrue(state.transferVisited.contains(0))
+        XCTAssertTrue(state.transferVisited.contains(1))
+        XCTAssertTrue(state.transferVisited.contains(2))
+        XCTAssertFalse(state.transferVisited.contains(3))
     }
 
     func testTwentyFourCardDeckUsesNineThroughAce() {
