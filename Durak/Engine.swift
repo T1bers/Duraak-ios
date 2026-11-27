@@ -228,7 +228,7 @@ struct GameState: Sendable {
         switch move {
         case .attack(let card):
             let playingPlayer = actor
-            if table.isEmpty { transferVisited = [playingPlayer] }
+            if table.isEmpty { transferVisited.removeAll() }
             removeFromHand(playingPlayer, card)
             table.append(Pair(attack: card, defense: nil))
             tableRanks.increment(card.rank)
