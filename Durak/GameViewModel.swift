@@ -116,11 +116,21 @@ final class GameVM: ObservableObject {
     }
 
     func restart() {
+        // In Durak, the next opening attack comes from the player immediately
+        // after the previous Durak. On a draw, choose a fresh random starter.
+        let nextStarter = state.durak.map { ($0 + 1) % playerCount }
         restartGeneration += 1
         token += 1
         thinking = false
         history.removeAll()
-        state = GameState.newGame(players: playerCount, deckSize: deckSize, transferEnabled: transferEnabled, drawOnMoveLimit: drawOnMoveLimit, throwInScope: throwInScope)
+        state = GameState.newGame(
+            players: playerCount,
+            deckSize: deckSize,
+            transferEnabled: transferEnabled,
+            drawOnMoveLimit: drawOnMoveLimit,
+            throwInScope: throwInScope,
+            startingPlayer: nextStarter
+        )
         message = "New game"
         schedule()
     }
