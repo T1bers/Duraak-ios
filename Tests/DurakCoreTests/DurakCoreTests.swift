@@ -168,24 +168,36 @@ final class DurakCoreTests: XCTestCase {
         XCTAssertEqual(state.table.count, 2)
     }
 
-    func testTransferCannotReturnAttackToOriginalAttacker() {
-        var queue = CircularQueue<Int>(capacity: 3)
-        queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
+    func testFourPlayerTransferMovesClockwiseAndCannotReturnToPreviousDefender() {
+        var queue = CircularQueue<Int>(capacity: 4)
+        queue.enqueue(3); queue.enqueue(0); queue.enqueue(1); queue.enqueue(2)
         let hands = [
             DynamicArray<Card>([Card(id: 0), Card(id: 3), Card(id: 4)]),
-            DynamicArray<Card>([Card(id: 9), Card(id: 10)]),
-            DynamicArray<Card>([Card(id: 18), Card(id: 19)])
+            DynamicArray<Card>([Card(id: 9), Card(id: 10), Card(id: 11)]),
+            DynamicArray<Card>([Card(id: 18), Card(id: 19), Card(id: 20)]),
+            DynamicArray<Card>([Card(id: 27), Card(id: 28), Card(id: 29)])
         ]
         var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts,
                               order: queue, transferEnabled: true)
 
+        // Player 3 attacks player 0. Transfers must then move to 1, 2, and 3.
         state.apply(.attack(Card(id: 0)))
+        XCTAssertTrue(state.legalMoves().contains(.transfer(Card(id: 9))))
         state.apply(.transfer(Card(id: 9)))
+        XCTAssertEqual(state.defender, 1)
 
-        XCTAssertEqual(state.defender, 2, "The transferred attack must move to the next player.")
-        XCTAssertEqual(state.actor, 2)
-        XCTAssertFalse(state.legalMoves().contains(.transfer(Card(id: 18))),
-                       "The next player must not be able to send the attack back to its original attacker.")
+        XCTAssertTrue(state.legalMoves().contains(.transfer(Card(id: 18))))
+        state.apply(.transfer(Card(id: 18)))
+        XCTAssertEqual(state.defender, 2)
+
+        // The original attacker (3) is a valid next defender in a four-player chain.
+        XCTAssertTrue(state.legalMoves().contains(.transfer(Card(id: 27)))
+                      == false, "Player 3's card is not a transfer card for player 2 unless its rank matches.")
+        XCTAssertEqual(state.defender, 3)
+        XCTAssertFalse(state.transferVisited.contains(3) == false,
+                       "The original attacker should be marked as visited only after becoming a defender.")
+        XCTAssertFalse(state.legalMoves().contains(.transfer(Card(id: 3))),
+                       "Player 3 must not be able to transfer the attack back to player 0, who already transferred.");
     }
 
     func testTwentyFourCardDeckUsesNineThroughAce() {
