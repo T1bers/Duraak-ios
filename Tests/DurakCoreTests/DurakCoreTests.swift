@@ -174,8 +174,8 @@ final class DurakCoreTests: XCTestCase {
         let hands = [
             DynamicArray<Card>([Card(id: 9), Card(id: 3), Card(id: 4)]),
             DynamicArray<Card>([Card(id: 18), Card(id: 12), Card(id: 13)]),
-            DynamicArray<Card>([Card(id: 27), Card(id: 21), Card(id: 22)]),
-            DynamicArray<Card>([Card(id: 0), Card(id: 30), Card(id: 31), Card(id: 32)])
+            DynamicArray<Card>([Card(id: 27), Card(id: 21), Card(id: 22), Card(id: 23)]),
+            DynamicArray<Card>([Card(id: 0), Card(id: 30), Card(id: 31), Card(id: 32), Card(id: 33)])
         ]
         var state = GameState(hands: hands, deck: DynamicArray<Card>(), trump: .hearts,
                               order: queue, transferEnabled: true)
