@@ -121,7 +121,8 @@ struct GameState: Sendable {
                 moves.append(.defend(index, card))
             }
             // Transfer Durak: pass the attack to the next player with a same-rank card.
-            if transferEnabled, order.count > 2, table.count < roundLimit {
+            if transferEnabled, order.count > 2, table.count < roundLimit,
+               table.toArray().allSatisfy({ $0.defense == nil }) {
                 let nextDefender = order[2]
                 let transferRank = attack.rank
                 if !transferVisited.contains(nextDefender), hands[nextDefender].count >= table.count + 1 {
